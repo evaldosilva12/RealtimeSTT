@@ -1336,7 +1336,7 @@ class AudioToTextRecorder:
                 del self.realtime_model_type
                 self.realtime_model_type = None
         gc.collect()
-^
+
 
     def _recording_worker(self):
         """
