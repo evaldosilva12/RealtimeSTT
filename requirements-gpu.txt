@@ -5,3 +5,4 @@ webrtcvad==2.0.10
 halo==0.0.31
 scipy==1.13.0
 websockets==v12.0
+openwakeword>=0.4.0
