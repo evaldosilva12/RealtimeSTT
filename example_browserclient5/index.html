@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Streamer</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            font-family: Arial, sans-serif;
+            overflow: hidden; /* Prevent the body from scrolling */
+        }
+        body {
+            background-color: black;
+            color: white;
+            display: flex;
+            flex-direction: row;
+        }
+        #main {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            height: 100vh; /* Full height */
+            overflow-y: auto; /* Scrollable main content */
+            padding: 20px;
+        }
+        #sidebar {
+            flex: 2;
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            overflow-y: auto; /* Scrollable sidebar */
+            height: 100vh; /* Full height */
+            position: relative; /* For the fixed position of buttons */
+        }
+        .text-display {
+            white-space: pre-wrap;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .yellow {
+            color: yellow;
+        }
+        .cyan {
+            color: cyan;
+        }
+        button {
+            background-color: #444;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin-top: 5px;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        #chatResponses div {
+            margin-bottom: 50px; /* Space between chat responses */
+        }
+        .sentence-buttons {
+            position: sticky; /* Keeps the buttons visible */
+            bottom: 10px; /* Sticks to the bottom of the sidebar */
+            background-color: #333; /* Same color as the sidebar */
+            padding: 10px;
+            z-index: 1000; /* Ensures it's above other content */
+        }
+    </style>
+</head>
+<body>
+    <div id="main">
+        <div id="textDisplay" style="max-width: 800px;"></div>
+    </div>
+    <div id="sidebar">
+        <!-- <h3>Chat Responses</h3> -->
+        <div id="chatResponses"></div>
+        <div class="sentence-buttons">
+            <button class="sendSentences" data-count="2">2</button>
+            <button class="sendSentences" data-count="3">3</button>
+            <button class="sendSentences" data-count="4">4</button>
+            <button class="sendSentences" data-count="5">5</button>
+            <button class="sendSentences" data-count="6">6</button>
+            <button class="sendSentences" data-count="7">7</button>
+            <button class="sendSentences" data-count="8">8</button>
+            <button id="captureScreenshot">📷</button>
+        </div>
+    </div>
+    
+    <script src="client.js"></script>
+</body>
+</html>

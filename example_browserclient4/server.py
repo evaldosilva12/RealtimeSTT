@@ -8,10 +8,12 @@ if __name__ == '__main__':
     import numpy as np
     from scipy.signal import resample
     import json
+    from groq import Groq
 
     recorder = None
     recorder_ready = threading.Event()
     client_websocket = None
+    client = Groq(api_key="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")
 
     async def send_to_client(message):
         if client_websocket:
@@ -62,22 +64,11 @@ if __name__ == '__main__':
             )
             print(f"\rSentence: {full_sentence}")
 
-    def decode_and_resample(
-            audio_data,
-            original_sample_rate,
-            target_sample_rate):
-
-        # Decode 16-bit PCM data to numpy array
+    def decode_and_resample(audio_data, original_sample_rate, target_sample_rate):
         audio_np = np.frombuffer(audio_data, dtype=np.int16)
-
-        # Calculate the number of samples after resampling
         num_original_samples = len(audio_np)
-        num_target_samples = int(num_original_samples * target_sample_rate /
-                                 original_sample_rate)
-
-        # Resample the audio
+        num_target_samples = int(num_original_samples * target_sample_rate / original_sample_rate)
         resampled_audio = resample(audio_np, num_target_samples)
-
         return resampled_audio.astype(np.int16).tobytes()
 
     async def echo(websocket, path):
@@ -90,6 +81,17 @@ if __name__ == '__main__':
                 print("Recorder not ready")
                 continue
 
+            # Check for different message types (metadata vs Groq interaction)
+            try:
+                message_data = json.loads(message)
+                if message_data.get('type') == 'groq':
+                    await handle_groq_request(message_data.get('text'))
+                continue
+            except (ValueError, json.JSONDecodeError):
+                # Not a JSON message, likely audio data
+                pass
+
+            # Handle audio data
             metadata_length = int.from_bytes(message[:4], byteorder='little')
             metadata_json = message[4:4+metadata_length].decode('utf-8')
             metadata = json.loads(metadata_json)
@@ -98,7 +100,52 @@ if __name__ == '__main__':
             resampled_chunk = decode_and_resample(chunk, sample_rate, 16000)
             recorder.feed_audio(resampled_chunk)
 
-    # start_server = websockets.serve(echo, "0.0.0.0", 9001)
+    def load_setup_data():
+        try:
+            with open("setup_data.json", "r") as f:
+                setup_data = json.load(f)
+                return setup_data.get('system_role'), setup_data.get('additional_info')
+        except FileNotFoundError:
+            print("Setup file not found. Please save the setup first.")
+            return None, None
+
+    # Handle Groq API request from client
+    async def handle_groq_request(user_message):
+        print(f"Sending to Groq: {user_message}")
+
+        # Load the system role and additional info from file
+        system_role, additional_info = load_setup_data()
+        if system_role is None or additional_info is None:
+            await send_to_client(
+                json.dumps({
+                    'type': 'error',
+                    'message': 'Please set up the system role and additional information first.'
+                })
+            )
+            return
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_role},
+                {"role": "user", "content": "This is the crucial information that you need to know:" + additional_info},
+                {"role": "user", "content": "I need you to answer this as me:" + user_message},
+            ],
+            model="llama3-8b-8192",
+            temperature=0.6,
+            max_tokens=1024,
+            top_p=1,
+            stop=None,
+            stream=False,
+        )
+        groq_response = chat_completion.choices[0].message.content
+        await send_to_client(
+            json.dumps({
+                'type': 'groqResponse',
+                'response': groq_response
+            })
+        )
+
+    # Start WebSocket server
     start_server = websockets.serve(echo, "localhost", 8001)
 
     recorder_thread = threading.Thread(target=recorder_thread)

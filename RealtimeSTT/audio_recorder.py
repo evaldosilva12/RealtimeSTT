@@ -101,7 +101,7 @@ class AudioToTextRecorder:
                  on_transcription_start=None,
                  ensure_sentence_starting_uppercase=True,
                  ensure_sentence_ends_with_period=True,
-                 use_microphone=True,
+                 use_microphone=False,
                  spinner=True,
                  level=logging.WARNING,
 
