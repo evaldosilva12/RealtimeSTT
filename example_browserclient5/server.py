@@ -168,7 +168,7 @@ if __name__ == '__main__':
                     ],
                 }
             ],
-            model="llava-v1.5-7b-4096-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             temperature=0.6,
             max_tokens=1024,
             top_p=1,
@@ -205,7 +205,7 @@ if __name__ == '__main__':
                 {"role": "user", "content": "This is the crucial information that you need to know:" + additional_info},
                 {"role": "user", "content": "I need you to answer this as me:" + user_message},
             ],
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile",
             temperature=0.6,
             max_tokens=1024,
             top_p=1,

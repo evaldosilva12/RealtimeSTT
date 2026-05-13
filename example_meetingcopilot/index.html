@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Copilot</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="timeline-panel" aria-label="Other participants transcript">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">Meeting Copilot</p>
+                    <h1>Others</h1>
+                </div>
+                <div class="status-strip">
+                    <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
+                    <span id="sttStatus" class="status-pill">STT starting</span>
+                    <span id="llmStatus" class="status-pill">LLM unknown</span>
+                </div>
+            </header>
+
+            <div id="partialTranscript" class="partial-transcript" hidden></div>
+            <div id="timeline" class="timeline"></div>
+        </section>
+
+        <aside class="response-panel" aria-label="AI responses">
+            <header class="response-header">
+                <div>
+                    <p class="eyebrow">Responses</p>
+                    <h2>Answer drafts</h2>
+                </div>
+                <button id="openSettings" class="icon-button" title="Prompt settings">⚙</button>
+            </header>
+            <div id="responses" class="responses"></div>
+        </aside>
+
+        <footer class="action-bar">
+            <div class="action-group">
+                <select id="audioInputSelect" class="audio-select" title="Audio input for other participants">
+                    <option value="">Choose input</option>
+                </select>
+                <button id="refreshAudioInputs">Refresh inputs</button>
+                <button id="startOthersAudio" class="primary">Start selected input</button>
+                <button id="startScreenAudio">Share screen audio</button>
+                <button id="stopOthersAudio">Stop</button>
+                <div class="audio-meter" title="Selected input signal">
+                    <span id="audioLevelBar"></span>
+                </div>
+                <span id="audioLevelText" class="audio-level-text">no signal</span>
+                <button id="startMyContext">Start my hidden context</button>
+                <button id="stopMyContext">Stop</button>
+            </div>
+            <div class="action-group compact">
+                <button class="last-n" data-count="2">2</button>
+                <button class="last-n" data-count="3">3</button>
+                <button class="last-n" data-count="4">4</button>
+                <button class="last-n" data-count="5">5</button>
+                <button class="last-n" data-count="6">6</button>
+                <button class="last-n" data-count="7">7</button>
+                <button class="last-n" data-count="8">8</button>
+                <button id="summarizeContext">Summarize</button>
+                <button id="objectionResponse">Objection</button>
+                <button id="screenshotAction">Screenshot</button>
+            </div>
+        </footer>
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog">
+        <form method="dialog" class="settings-card">
+            <header>
+                <div>
+                    <p class="eyebrow">Prompt Profile</p>
+                    <h2>Setup</h2>
+                </div>
+                <button value="close" class="icon-button" title="Close">×</button>
+            </header>
+            <label>
+                System role
+                <textarea id="systemRole" rows="7"></textarea>
+            </label>
+            <label>
+                Additional info
+                <textarea id="additionalInfo" rows="7"></textarea>
+            </label>
+            <label class="checkbox-row">
+                <input id="includeHiddenContext" type="checkbox">
+                Use my hidden context in prompts
+            </label>
+            <details>
+                <summary>My hidden context</summary>
+                <div id="hiddenContextLog" class="hidden-log"></div>
+                <textarea id="manualHiddenContext" rows="3" placeholder="Add private context for the AI. It will not appear in the main timeline."></textarea>
+                <button id="saveManualContext" type="button">Add hidden context</button>
+            </details>
+            <menu>
+                <button value="cancel">Cancel</button>
+                <button id="saveSetup" value="default" class="primary">Save setup</button>
+            </menu>
+        </form>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

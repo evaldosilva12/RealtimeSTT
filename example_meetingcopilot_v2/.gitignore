@@ -1,0 +1,6 @@
+.env
+__pycache__/
+meeting_copilot.sqlite3
+meeting_copilot.sqlite3-*
+tmp/
+*.log

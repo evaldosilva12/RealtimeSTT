@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Copilot V2</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="timeline-panel" aria-label="Other participants transcript">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">Meeting Copilot V2</p>
+                </div>
+                <div class="status-strip">
+                    <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
+                    <span id="sttStatus" class="status-pill">STT starting</span>
+                    <span id="llmStatus" class="status-pill">LLM unknown</span>
+                </div>
+            </header>
+
+            <div id="partialTranscript" class="partial-transcript" hidden></div>
+            <div id="timeline" class="timeline"></div>
+        </section>
+
+        <aside class="response-panel" aria-label="AI responses">
+            <div id="responses" class="responses"></div>
+        </aside>
+
+        <footer class="action-bar">
+            <div class="command-cluster" aria-label="AI quick actions">
+                <div class="command-row primary-actions">
+                    <button id="answerRecent" class="primary-soft">Answer</button>
+                    <button id="clarifyRecent">Clarify</button>
+                    <button id="askRecent">Ask question</button>
+                    <button id="pushBackRecent">Push back</button>
+                </div>
+                <div class="command-row secondary-actions">
+                    <span class="last-label">Last</span>
+                    <div class="last-counts" aria-label="Recent transcript count">
+                        <button class="last-n" data-count="2" title="Use last 2 transcript cards">2</button>
+                        <button class="last-n" data-count="3" title="Use last 3 transcript cards">3</button>
+                        <button class="last-n" data-count="4" title="Use last 4 transcript cards">4</button>
+                        <button class="last-n" data-count="5" title="Use last 5 transcript cards">5</button>
+                        <button class="last-n" data-count="6" title="Use last 6 transcript cards">6</button>
+                        <button class="last-n" data-count="7" title="Use last 7 transcript cards">7</button>
+                        <button class="last-n" data-count="8" title="Use last 8 transcript cards">8</button>
+                    </div>
+                    <button id="summarizeContext">Summarize</button>
+                    <button id="nextStepAction">Next step</button>
+                    <button id="objectionResponse">Objection</button>
+                    <button id="screenshotAction">Screenshot</button>
+                </div>
+            </div>
+            <div class="utility-cluster" aria-label="Session controls">
+                <button id="openSettings" class="icon-control settings-icon-button" title="Prompt settings" aria-label="Prompt settings">
+                    <span class="gear-glyph" aria-hidden="true">&#9881;</span>
+                </button>
+                <details class="audio-menu">
+                    <summary class="icon-control" title="Audio controls" aria-label="Audio controls">
+                        <span class="audio-glyph" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </span>
+                    </summary>
+                    <div class="audio-popover">
+                        <div class="popover-header">
+                            <div>
+                                <span>Audio</span>
+                                <small>Configure before the meeting flow starts.</small>
+                            </div>
+                        </div>
+                        <select id="audioInputSelect" class="audio-select" title="Audio input for other participants">
+                            <option value="">Choose input</option>
+                        </select>
+                        <div class="popover-grid">
+                            <button id="refreshAudioInputs">Refresh</button>
+                            <button id="startOthersAudio" class="primary">Start input</button>
+                            <button id="startScreenAudio">Screen audio</button>
+                            <button id="stopOthersAudio">Stop</button>
+                            <button id="startMyContext">Start hidden context</button>
+                            <button id="stopMyContext">Stop context</button>
+                        </div>
+                        <details class="debug-audio">
+                            <summary>Debug</summary>
+                            <div class="audio-meter" title="Selected input signal">
+                                <span id="audioLevelBar"></span>
+                            </div>
+                            <dl class="debug-grid">
+                                <dt>Input</dt>
+                                <dd id="debugInput">none</dd>
+                                <dt>Signal</dt>
+                                <dd id="audioLevelText">no signal</dd>
+                                <dt>PCM peak</dt>
+                                <dd id="debugPcm">0</dd>
+                                <dt>Raw peak</dt>
+                                <dd id="debugRawPeak">0</dd>
+                                <dt>Resampled peak</dt>
+                                <dd id="debugResampledPeak">0</dd>
+                                <dt>Socket</dt>
+                                <dd id="debugSocket">connecting</dd>
+                            </dl>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </footer>
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog">
+        <form method="dialog" class="settings-card">
+            <header>
+                <div>
+                    <p class="eyebrow">Prompt Profile</p>
+                    <h2>Setup</h2>
+                </div>
+                <button value="close" class="settings-button" title="Close">Close</button>
+            </header>
+            <label>
+                System role
+                <textarea id="systemRole" rows="7"></textarea>
+            </label>
+            <label>
+                Additional info
+                <textarea id="additionalInfo" rows="7"></textarea>
+            </label>
+            <label class="checkbox-row">
+                <input id="includeHiddenContext" type="checkbox">
+                Use my hidden context in prompts
+            </label>
+            <details>
+                <summary>My hidden context</summary>
+                <div id="hiddenContextLog" class="hidden-log"></div>
+                <textarea id="manualHiddenContext" rows="3" placeholder="Add private context for the AI. It will not appear in the main timeline."></textarea>
+                <button id="saveManualContext" type="button">Add hidden context</button>
+            </details>
+            <menu>
+                <button value="cancel">Cancel</button>
+                <button id="saveSetup" value="default" class="primary">Save setup</button>
+            </menu>
+        </form>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
