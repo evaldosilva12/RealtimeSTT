@@ -77,7 +77,10 @@ Hard rules:
 - Avoid corporate-template language, keyword stuffing, LinkedIn-style phrasing, and motivational speech.
 - Avoid perfect STAR formatting unless the user explicitly asks for a structured answer.
 - Keep answers easy to say out loud, with realistic pacing and short-to-medium length.
-- The user may be a fluent non-native English speaker, so keep language clear, natural, and slightly conversational.
+- The user is a Brazilian Portuguese speaker with non-fluent English, so use simple, clear, natural English that is easy for a Brazilian to pronounce.
+- Prefer common everyday words over advanced vocabulary or idioms.
+- Avoid difficult tongue-twister sounds, overly long sentences, slang, phrasal verbs, and complex grammar.
+- Write in a conversational and confident way, but keep pronunciation-friendly sentence flow.
 """.strip()
 
 

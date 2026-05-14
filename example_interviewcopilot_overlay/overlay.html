@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Copilot Overlay</title>
+    <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+    <main class="overlay-shell">
+        <header class="overlay-header">
+            <div class="drag-region">
+                <p class="eyebrow">Interview Copilot</p>
+                <div class="status-row">
+                    <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
+                    <span id="sttStatus" class="status-pill">STT starting</span>
+                    <span id="llmStatus" class="status-pill">LLM unknown</span>
+                    <span id="modeStatus" class="status-pill">Interactive</span>
+                </div>
+            </div>
+            <nav class="window-tools" aria-label="Overlay controls">
+                <button id="showControl" type="button" title="Open control window">Control</button>
+                <button id="toggleLock" type="button" title="Lock overlay position">Lock</button>
+                <button id="togglePassThrough" type="button" title="Let clicks pass through overlay">Pass</button>
+                <button id="hideOverlay" type="button" title="Hide overlay">Hide</button>
+            </nav>
+        </header>
+
+        <section class="live-section" aria-label="Live transcript">
+            <div id="partialTranscript" class="partial-transcript" hidden></div>
+            <div id="timeline" class="timeline"></div>
+        </section>
+
+        <section class="answer-section" aria-label="AI response">
+            <div class="answer-toolbar">
+                <button id="answerRecent" type="button" class="primary">Answer</button>
+                <button id="clarifyRecent" type="button">Clarify</button>
+                <button id="recoverRecent" type="button">Recover</button>
+                <button id="copyResponse" type="button">Copy</button>
+            </div>
+            <article id="activeResponse" class="active-response">
+                <div class="response-meta">No active response</div>
+                <div id="responseBody" class="response-body">Waiting for transcript or an action.</div>
+            </article>
+        </section>
+    </main>
+
+    <script type="module" src="js/overlay.js"></script>
+</body>
+</html>

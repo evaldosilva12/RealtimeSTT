@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Copilot</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="timeline-panel" aria-label="Other participants transcript">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">Interview Copilot</p>
+                </div>
+                <div class="status-strip">
+                    <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
+                    <span id="sttStatus" class="status-pill">STT starting</span>
+                    <span id="llmStatus" class="status-pill">LLM unknown</span>
+                </div>
+            </header>
+
+            <div id="partialTranscript" class="partial-transcript" hidden></div>
+            <div id="timeline" class="timeline"></div>
+        </section>
+
+        <aside class="response-panel" aria-label="AI responses">
+            <div id="responses" class="responses"></div>
+        </aside>
+
+        <footer class="action-bar">
+            <div class="command-cluster" aria-label="AI quick actions">
+                <div class="command-row primary-actions">
+                    <button id="answerRecent" class="primary-soft">Answer</button>
+                    <button id="clarifyRecent">Clarify</button>
+                    <button id="askRecent">Ask interviewer</button>
+                    <button id="exampleRecent">Example</button>
+                    <button id="recoverRecent">Recover</button>
+                    <button id="pushBackRecent">Handle concern</button>
+                </div>
+                <div class="command-row secondary-actions">
+                    <span class="last-label">Last</span>
+                    <div class="last-counts" aria-label="Recent transcript count">
+                        <button class="last-n" data-count="2" title="Use last 2 transcript cards">2</button>
+                        <button class="last-n" data-count="3" title="Use last 3 transcript cards">3</button>
+                        <button class="last-n" data-count="4" title="Use last 4 transcript cards">4</button>
+                        <button class="last-n" data-count="5" title="Use last 5 transcript cards">5</button>
+                        <button class="last-n" data-count="6" title="Use last 6 transcript cards">6</button>
+                        <button class="last-n" data-count="7" title="Use last 7 transcript cards">7</button>
+                        <button class="last-n" data-count="8" title="Use last 8 transcript cards">8</button>
+                    </div>
+                    <button id="summarizeContext">Notes</button>
+                    <button id="nextStepAction">Follow-up</button>
+                    <button id="screenshotAction">Screenshot</button>
+                </div>
+            </div>
+            <div class="utility-cluster" aria-label="Session controls">
+                <button id="openSettings" class="icon-control settings-icon-button" title="Prompt settings" aria-label="Prompt settings">
+                    <span class="gear-glyph" aria-hidden="true">&#9881;</span>
+                </button>
+                <details class="audio-menu">
+                    <summary class="icon-control" title="Audio controls" aria-label="Audio controls">
+                        <span class="audio-glyph" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </span>
+                    </summary>
+                    <div class="audio-popover">
+                        <div class="popover-header">
+                            <div>
+                                <span>Audio</span>
+                                <small>Configure before the meeting flow starts.</small>
+                            </div>
+                        </div>
+                        <select id="audioInputSelect" class="audio-select" title="Audio input for other participants">
+                            <option value="">Choose input</option>
+                        </select>
+                        <div class="popover-grid">
+                            <button id="refreshAudioInputs">Refresh</button>
+                            <button id="startOthersAudio" class="primary">Start input</button>
+                            <button id="startScreenAudio">Screen audio</button>
+                            <button id="stopOthersAudio">Stop</button>
+                            <button id="startMyContext">Start hidden context</button>
+                            <button id="stopMyContext">Stop context</button>
+                        </div>
+                        <details class="debug-audio">
+                            <summary>Debug</summary>
+                            <div class="audio-meter" title="Selected input signal">
+                                <span id="audioLevelBar"></span>
+                            </div>
+                            <dl class="debug-grid">
+                                <dt>Input</dt>
+                                <dd id="debugInput">none</dd>
+                                <dt>Signal</dt>
+                                <dd id="audioLevelText">no signal</dd>
+                                <dt>PCM peak</dt>
+                                <dd id="debugPcm">0</dd>
+                                <dt>Raw peak</dt>
+                                <dd id="debugRawPeak">0</dd>
+                                <dt>Resampled peak</dt>
+                                <dd id="debugResampledPeak">0</dd>
+                                <dt>Socket</dt>
+                                <dd id="debugSocket">connecting</dd>
+                            </dl>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </footer>
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog">
+        <form method="dialog" class="settings-card">
+            <header>
+                <div>
+                    <p class="eyebrow">Job Interview</p>
+                    <h2>Interview Setup</h2>
+                </div>
+                <button value="close" class="settings-button" title="Close">Close</button>
+            </header>
+            <div class="profile-toolbar">
+                <select id="profileSelect" title="Saved interview profiles"></select>
+                <button id="selectProfile" type="button">Select</button>
+                <button id="newProfile" type="button">New</button>
+                <button id="duplicateProfile" type="button">Duplicate</button>
+                <button id="archiveProfile" type="button">Archive</button>
+            </div>
+            <div id="profileStatus" class="profile-status">No interview selected.</div>
+            <section class="overlay-setup" aria-label="Overlay setup">
+                <div>
+                    <span>Overlay transparency</span>
+                    <small>Adjusts the always-on-top meeting overlay.</small>
+                </div>
+                <label class="range-control">
+                    <input id="overlayOpacity" type="range" min="35" max="100" step="5" value="100">
+                    <output id="overlayOpacityValue" for="overlayOpacity">100%</output>
+                </label>
+            </section>
+            <div class="settings-grid">
+                <label>
+                    Interview name
+                    <input id="profileName" type="text" placeholder="CTO - Company A">
+                </label>
+                <label>
+                    Target role
+                    <input id="targetRole" type="text" placeholder="CTO">
+                </label>
+                <label>
+                    Company
+                    <input id="companyName" type="text" placeholder="Company A">
+                </label>
+                <label>
+                    Response style
+                    <select id="responseStyle">
+                        <option>Natural</option>
+                        <option>Professional</option>
+                        <option>Concise</option>
+                        <option>Expanded</option>
+                    </select>
+                </label>
+            </div>
+            <label>
+                Resume text
+                <textarea id="resumeText" rows="6" placeholder="Paste the candidate resume text here."></textarea>
+            </label>
+            <label>
+                Job description text
+                <textarea id="jobDescriptionText" rows="6" placeholder="Paste the target job description here."></textarea>
+            </label>
+            <details>
+                <summary>Optional interview context</summary>
+                <div class="settings-stack">
+                    <label>
+                        Cover letter
+                        <textarea id="coverLetterText" rows="4"></textarea>
+                    </label>
+                    <label>
+                        LinkedIn / profile text
+                        <textarea id="linkedinText" rows="4"></textarea>
+                    </label>
+                    <label>
+                        Company information
+                        <textarea id="companyInfo" rows="4"></textarea>
+                    </label>
+                    <label>
+                        Recruiter notes
+                        <textarea id="recruiterNotes" rows="4"></textarea>
+                    </label>
+                    <label>
+                        Personal notes
+                        <textarea id="personalNotes" rows="4"></textarea>
+                    </label>
+                    <label>
+                        Previous interview context
+                        <textarea id="previousInterviewContext" rows="4"></textarea>
+                    </label>
+                    <label>
+                        Additional instructions
+                        <textarea id="additionalInstructions" rows="4"></textarea>
+                    </label>
+                </div>
+            </details>
+            <label>
+                Internal candidate profile
+                <textarea id="internalCandidateProfile" rows="8" placeholder="Generated internal profile will appear here. You may edit it if needed."></textarea>
+            </label>
+            <details>
+                <summary>My hidden context</summary>
+                <div id="hiddenContextLog" class="hidden-log"></div>
+                <textarea id="manualHiddenContext" rows="3" placeholder="Add private context for the AI. It will not appear in the main timeline."></textarea>
+                <button id="saveManualContext" type="button">Add hidden context</button>
+            </details>
+            <menu>
+                <button value="cancel">Cancel</button>
+                <button id="generateInternalProfile" type="button">Generate Profile</button>
+                <button id="saveProfile" type="button" class="primary">Save Interview</button>
+            </menu>
+        </form>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

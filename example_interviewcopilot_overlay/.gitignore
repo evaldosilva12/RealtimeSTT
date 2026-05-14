@@ -1,0 +1,13 @@
+.env
+__pycache__/
+node_modules/
+meeting_copilot.sqlite3
+meeting_copilot.sqlite3-*
+interview_copilot.sqlite3
+interview_copilot.sqlite3-*
+interview_runtime.sqlite3
+interview_runtime.sqlite3-*
+tmp/
+*.log
+*.tmp
+*.tmp-*
