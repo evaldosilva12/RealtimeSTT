@@ -78,7 +78,6 @@ export function renderTimeline() {
                 ["Clarify", "clarify"],
                 ["Ask", "ask_question"],
                 ["Example", "give_example"],
-                ["Recover", "recover_answer"],
                 ["Push back", "push_back"],
             ].forEach(([label, actionType]) => {
                 const actionButton = document.createElement("button");

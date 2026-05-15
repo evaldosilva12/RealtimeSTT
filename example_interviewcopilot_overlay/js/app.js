@@ -167,10 +167,11 @@ function initActions() {
     document.getElementById("quickAnswerRecent").addEventListener("click", () => (
         requestLastN(1, "answer_last_n", { response_mode: "quick" })
     ));
-    document.getElementById("clarifyRecent").addEventListener("click", () => requestLastN(4, "clarify"));
-    document.getElementById("askRecent").addEventListener("click", () => requestLastN(4, "ask_question"));
+    document.getElementById("clarifyRecent").addEventListener("click", () => (
+        requestLastN(1, "clarify", { response_mode: "quick" })
+    ));
+    document.getElementById("askRecent").addEventListener("click", () => requestLastN(1, "ask_question"));
     document.getElementById("exampleRecent").addEventListener("click", () => requestLastN(4, "give_example"));
-    document.getElementById("recoverRecent").addEventListener("click", () => requestLastN(6, "recover_answer"));
     document.getElementById("pushBackRecent").addEventListener("click", () => requestLastN(4, "push_back"));
     document.getElementById("summarizeContext").addEventListener("click", () => requestLastN(8, "summarize_context"));
     document.getElementById("nextStepAction").addEventListener("click", () => requestLastN(6, "next_step"));

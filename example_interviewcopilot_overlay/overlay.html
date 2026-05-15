@@ -11,7 +11,7 @@
         <header class="overlay-header">
             <div class="drag-region">
                 <p class="eyebrow">Interview Copilot</p>
-                <div class="status-row">
+                <div class="status-row" hidden>
                     <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
                     <span id="sttStatus" class="status-pill">STT starting</span>
                     <span id="llmStatus" class="status-pill">LLM unknown</span>
@@ -22,7 +22,7 @@
                 <button id="answerRecent" type="button" class="primary">Answer</button>
                 <button id="quickAnswerRecent" type="button" title="Faster, shorter answer with less live context">Quick</button>
                 <button id="clarifyRecent" type="button">Clarify</button>
-                <button id="recoverRecent" type="button">Recover</button>
+                <button id="askRecent" type="button" title="Ask the interviewer based on the latest transcript">Ask</button>
                 <button id="mergeRecent" type="button" title="Merge the latest transcript with the previous one">Merge</button>
             </div>
             <nav class="window-tools" aria-label="Overlay controls">
@@ -38,7 +38,6 @@
 
         <section class="answer-section" aria-label="AI response">
             <article id="activeResponse" class="active-response">
-                <div class="response-meta">No active response</div>
                 <div id="responseStatus" class="response-status" hidden></div>
                 <div id="responseBody" class="response-body">Waiting for transcript or an action.</div>
             </article>

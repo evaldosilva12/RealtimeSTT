@@ -30,13 +30,14 @@ body {
 
 button {
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 999px;
     background: var(--panel-soft);
     color: var(--text);
-    min-height: 32px;
-    padding: 6px 9px;
+    min-height: 24px;
+    padding: 3px 8px;
     font: inherit;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.2;
     cursor: pointer;
 }
 
@@ -56,7 +57,7 @@ button:hover {
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 10px;
     height: 100vh;
-    padding: 12px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
@@ -66,9 +67,9 @@ button:hover {
 
 .overlay-header {
     display: grid;
-    grid-template-columns: minmax(190px, 1fr) auto auto;
-    align-items: start;
-    gap: 10px;
+    grid-template-columns: minmax(120px, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
 }
 
 .drag-region {
@@ -78,7 +79,7 @@ button:hover {
 }
 
 .eyebrow {
-    margin: 0 0 6px;
+    margin: 0;
     color: var(--muted);
     font-size: 11px;
     text-transform: uppercase;
@@ -89,6 +90,10 @@ button:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+}
+
+.status-row[hidden] {
+    display: none;
 }
 
 .status-pill {
@@ -119,7 +124,7 @@ button:hover {
 .window-tools, .top-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
     -webkit-app-region: no-drag;
 }
 
@@ -132,8 +137,8 @@ button:hover {
 }
 
 .close-button {
-    width: 32px;
-    min-width: 32px;
+    width: 24px;
+    min-width: 24px;
     padding: 0;
     font-weight: 700;
 }
@@ -185,31 +190,11 @@ button:hover {
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--panel);
-    padding: 9px 10px;
+    padding: 8px 10px;
 }
 
 .utterance.live {
     border-color: rgba(93, 200, 255, 0.44);
-}
-
-.utterance-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 5px;
-    color: var(--muted);
-    font-size: 11px;
-}
-
-.delete-utterance {
-    width: 24px;
-    min-width: 24px;
-    min-height: 24px;
-    padding: 0;
-    color: var(--danger);
-    font-size: 11px;
-    font-weight: 800;
 }
 
 .utterance-text {
@@ -231,15 +216,6 @@ button:hover {
     border-radius: 8px;
     background: var(--panel);
     padding: 10px;
-}
-
-.response-meta {
-    margin-bottom: 7px;
-    color: var(--accent-strong);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
 }
 
 .response-body {

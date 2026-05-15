@@ -51,21 +51,6 @@ function requestMergeLatestWithPrevious() {
     });
 }
 
-function requestTranscriptDelete(item) {
-    const replacementText = siblingUtterances(item.utterance_id)
-        .filter((sibling) => sibling.utterance_id !== item.utterance_id)
-        .sort((a, b) => a.created_at - b.created_at)
-        .map((sibling) => sibling.text)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-    sendJson({
-        type: "transcript.delete",
-        utterance_id: item.utterance_id,
-        replacement_text: replacementText,
-    });
-}
-
 function handleEvent(event) {
     if (event.session_id) {
         state.sessionId = event.session_id;
@@ -184,29 +169,10 @@ function renderTimeline() {
         const card = document.createElement("article");
         card.className = item.isLive ? "utterance live" : "utterance";
 
-        const header = document.createElement("div");
-        header.className = "utterance-header";
-        header.textContent = item.isLive ? "Live" : new Date(item.created_at * 1000).toLocaleTimeString();
-
         const text = document.createElement("div");
         text.className = "utterance-text";
         text.textContent = item.text;
-
-        if (!item.isLive) {
-            const deleteButton = document.createElement("button");
-            deleteButton.type = "button";
-            deleteButton.className = "delete-utterance";
-            deleteButton.textContent = "X";
-            deleteButton.title = "Delete this transcript";
-            deleteButton.setAttribute("aria-label", "Delete this transcript");
-            deleteButton.addEventListener("click", (clickEvent) => {
-                clickEvent.stopPropagation();
-                requestTranscriptDelete(item);
-            });
-            header.appendChild(deleteButton);
-        }
-
-        card.append(header, text);
+        card.appendChild(text);
         card.addEventListener("click", () => requestAction("answer_as_me", {
             text: item.text,
             utterance_id: item.utterance_id,
@@ -221,20 +187,10 @@ function sortedFinalUtterances() {
         .sort((a, b) => b.created_at - a.created_at);
 }
 
-function siblingUtterances(utteranceId) {
-    const baseId = storageUtteranceId(utteranceId);
-    return [...state.utterances.values()].filter((item) => storageUtteranceId(item.utterance_id) === baseId);
-}
-
-function storageUtteranceId(utteranceId) {
-    return utteranceId.replace(/-\d+$/, "");
-}
-
 function handleActionEvent(event) {
     if (event.type === "action.requested") {
         activeActionId = event.action_id;
         activeResponseText = "";
-        activeResponse.querySelector(".response-meta").textContent = event.label || event.action_type || "Action";
         responseStatus.hidden = true;
         responseStatus.textContent = "";
         responseBody.textContent = "Thinking...";
@@ -263,10 +219,6 @@ function handleActionEvent(event) {
     if (event.type === "action.completed" && event.action_id === activeActionId) {
         activeResponseText = (event.response || activeResponseText || "").trim();
         responseBody.textContent = activeResponseText || "Completed, but no answer text was returned.";
-        if (event.model_info?.provider && event.model_info?.model) {
-            responseStatus.hidden = false;
-            responseStatus.textContent = `Answered by ${formatProviderLabel(event.model_info)} ${event.model_info.model}`;
-        }
         activeResponse.className = "active-response";
         return;
     }
@@ -278,17 +230,9 @@ function handleActionEvent(event) {
     }
 
     if (event.type === "action.error") {
-        activeResponse.querySelector(".response-meta").textContent = "Error";
         responseBody.textContent = event.message || "Action failed.";
         activeResponse.className = "active-response error";
     }
-}
-
-function formatProviderLabel(providerOrInfo) {
-    if (providerOrInfo?.provider_label) {
-        return providerOrInfo.provider_label;
-    }
-    return String(providerOrInfo?.provider || providerOrInfo || "provider").replaceAll("_", " ");
 }
 
 function splitFinalText(text) {
@@ -342,8 +286,10 @@ document.getElementById("answerRecent").addEventListener("click", () => requestL
 document.getElementById("quickAnswerRecent").addEventListener("click", () => (
     requestLastN(1, "answer_last_n", { response_mode: "quick" })
 ));
-document.getElementById("clarifyRecent").addEventListener("click", () => requestLastN(4, "clarify"));
-document.getElementById("recoverRecent").addEventListener("click", () => requestLastN(6, "recover_answer"));
+document.getElementById("clarifyRecent").addEventListener("click", () => (
+    requestLastN(1, "clarify", { response_mode: "quick" })
+));
+document.getElementById("askRecent").addEventListener("click", () => requestLastN(1, "ask_question"));
 document.getElementById("mergeRecent").addEventListener("click", requestMergeLatestWithPrevious);
 
 document.getElementById("togglePassThrough").addEventListener("click", async () => {
