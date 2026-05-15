@@ -84,6 +84,8 @@ Hard rules:
 - For broad introduction questions, preserve the main resume timeline, but do not recite the full resume.
 - For broad introductions, aim for a 60-90 second spoken answer with only the career arc, 2-3 strongest themes, and a short fit statement.
 - Save detailed metrics, long examples, and responsibility lists for follow-up questions unless the interviewer explicitly asks for detail.
+- If the interviewer is only greeting me or asking how I am, answer only the small-talk question in one short casual sentence.
+- For greetings and "how are you" questions, do not mention my resume, role fit, company research, releases, compliance, metrics, or experience.
 - Never use markdown, headings, bold text, bullet points, numbered lists, or labels like "Situation" and "Action" in a spoken answer.
 - For normal answers, aim for 2 short paragraphs or about 45-75 seconds.
 - For simple questions, answer in about 20-40 seconds.
@@ -95,6 +97,10 @@ Hard rules:
 - Do not end every answer with an obvious role-fit line like "that is why this role is a natural fit."
 - Mention fit with the role or company only when it directly answers the question.
 - Vary openings, examples, transitions, and closings across answers.
+- Avoid leaning on the same TPM words in every answer, such as clarity, structure, blockers, ownership, smooth, predictable, single source of truth, and nothing falls through the cracks.
+- For behavioral or example-based questions, include one small concrete detail from the profile or context, such as a tracker, document, cadence, handoff, decision, or practical action.
+- For motivation, role-fit, and closing questions, answer the direct reason with one supporting point, then stop.
+- For follow-up questions, answer only the follow-up instead of restarting the full career story.
 - Avoid corporate-template language, keyword stuffing, LinkedIn-style phrasing, motivational speech, TED Talk tone, and keynote-speaker energy.
 - Avoid perfect STAR formatting unless the user explicitly asks for a structured answer.
 - Keep answers easy to say out loud, with realistic pacing and short-to-medium length.
@@ -178,7 +184,7 @@ class ActionService:
                 first_delta_seen = True
                 await self.emit({"type": "action.delta", "action_id": action_id, "delta": delta})
 
-            model = settings.groq_quality_model if action_type == "improve_answer" else settings.groq_text_model
+            model = settings.openai_improve_model if action_type == "improve_answer" else settings.openai_text_model
             notice_task = asyncio.create_task(
                 self._emit_wait_notice(action_id, lambda: first_delta_seen)
             )
@@ -345,11 +351,13 @@ class ActionService:
         raise LLMRequestError(f"Unknown provider: {provider}")
 
     def _planned_model_chain(self, primary_model: str) -> list[dict[str, str]]:
-        attempts = [self._model_attempt("groq", primary_model)]
-        if self.llm.secondary_enabled:
-            attempts.append(self._model_attempt("groq_secondary", primary_model))
+        attempts = []
         if self.llm.openai_enabled:
-            attempts.append(self._model_attempt("openai", settings.openai_fallback_model))
+            attempts.append(self._model_attempt("openai", primary_model))
+        if self.llm.enabled:
+            attempts.append(self._model_attempt("groq", settings.groq_text_model))
+        if self.llm.secondary_enabled:
+            attempts.append(self._model_attempt("groq_secondary", settings.groq_text_model))
         return self._dedupe_model_chain(attempts)
 
     @staticmethod
@@ -515,7 +523,7 @@ class ActionService:
                 f"{style_instruction} Prioritize speed: give a compact live answer in 1-2 short paragraphs, "
                 "with only the most relevant evidence."
             )
-        primary_model_for_action = settings.groq_quality_model if action_type == "improve_answer" else settings.groq_text_model
+        primary_model_for_action = settings.openai_improve_model if action_type == "improve_answer" else settings.openai_text_model
 
         user_content = (
             "Context priority, highest first:\n"
@@ -538,6 +546,11 @@ class ActionService:
             "- Preserve qualifiers such as company names, role names, time periods, tools, project names, and words like recent, current, previous, or at a specific company.\n"
             "- If the question asks about one company, role, project, or time period, stay within that scope.\n"
             "- Do not summarize the full career unless the question is broad, like 'tell me about yourself' or 'walk me through your background.'\n\n"
+            "Greeting and warm-up rules:\n"
+            "- If the interviewer is only saying hello, thanking me for joining, or asking how I am, answer casually in one short sentence.\n"
+            "- Good examples: 'I am doing well, thank you. It is nice to be here.' or 'I am good, thanks. I appreciate you taking the time today.'\n"
+            "- Do not add any career background, role fit, company comments, metrics, releases, compliance, or automation experience to a greeting answer.\n"
+            "- Wait for a real interview question before discussing my background.\n\n"
             "Voice and fit rules:\n"
             "- Sound trustworthy, organized, clear, practical, and human.\n"
             "- Do not sound like a TED Talk, corporate speaker, motivational pitch, LinkedIn post, or memorized script.\n"
@@ -552,11 +565,22 @@ class ActionService:
             "- For a simple warm-up or follow-up question, use 1-2 short paragraphs or about 20-40 seconds.\n"
             "- For a behavioral example, give enough detail to be credible, but keep it conversational and avoid rigid STAR structure.\n"
             "- Answer follow-up questions directly. Do not recap my full career unless the interviewer asks for it.\n\n"
+            "Concrete detail rules:\n"
+            "- For behavioral or example-based questions, include one small concrete detail when the profile supports it.\n"
+            "- Good concrete details are a tracker, shared document, meeting cadence, handoff, decision log, checklist, audit evidence packet, or one practical action I personally took.\n"
+            "- Do not add a tool name unless the resume/profile/context clearly supports it. If unsure, say shared tracker, board, spreadsheet, or documentation instead.\n"
+            "- Keep the detail small and useful. Do not turn the answer into a long process walkthrough.\n\n"
             "Repetition control rules:\n"
             "- Vary my opening line, example, transition, and closing from previous answers.\n"
             "- Avoid repeating the same themes in every answer, especially board, owners, blockers, release tracking, QA, and developers focusing on code.\n"
+            "- Also avoid overusing the same TPM words across the interview: clarity, structure, ownership, smooth, predictable, single source of truth, aligned, and nothing falls through the cracks.\n"
+            "- If a previous answer already used one of those words or themes, prefer a simpler phrase or a different concrete detail in this answer.\n"
             "- Use at most one strong metric per answer, and only when the raw candidate facts clearly support it.\n"
             "- Save other useful facts for later instead of using every strong point at once.\n\n"
+            "Role-fit, motivation, and closing rules:\n"
+            "- For questions like why this role, what caught my attention, biggest strengths, or anything else to add, keep the answer short.\n"
+            "- Give the direct reason, one supporting experience or habit, and stop. Do not recap my whole background.\n"
+            "- Avoid sounding like a cover letter or sales pitch.\n\n"
             "Broad introduction rules:\n"
             "- If the question asks me to introduce myself, give a 60-90 second overview, not a full resume walkthrough.\n"
             "- Use 2-3 short paragraphs at most.\n"
@@ -629,8 +653,8 @@ class ActionService:
                 "models": {
                     "primary": primary_model_for_action,
                     "planned_chain": self._planned_model_chain(primary_model_for_action),
-                    "groq_secondary": primary_model_for_action if self.llm.secondary_enabled else "",
-                    "openai_fallback": settings.openai_fallback_model if self.llm.openai_enabled else "",
+                    "groq_primary": settings.groq_text_model if self.llm.enabled else "",
+                    "groq_secondary": settings.groq_text_model if self.llm.secondary_enabled else "",
                 },
             "context_priority": [
                 "Current selected question/request",

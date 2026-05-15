@@ -165,7 +165,7 @@ function initActions() {
     });
     document.getElementById("answerRecent").addEventListener("click", () => requestLastN(4, "answer_last_n"));
     document.getElementById("quickAnswerRecent").addEventListener("click", () => (
-        requestLastN(3, "answer_last_n", { response_mode: "quick" })
+        requestLastN(1, "answer_last_n", { response_mode: "quick" })
     ));
     document.getElementById("clarifyRecent").addEventListener("click", () => requestLastN(4, "clarify"));
     document.getElementById("askRecent").addEventListener("click", () => requestLastN(4, "ask_question"));

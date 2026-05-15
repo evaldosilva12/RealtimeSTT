@@ -66,8 +66,9 @@ or the Electron app with `npm start`.
 ## Defaults
 
 - WebSocket: `ws://localhost:8015`
-- Fast answer model: `openai/gpt-oss-20b`
-- Improve/quality model: `llama-3.3-70b-versatile`
+- Fast answer model: `gpt-4.1-mini`
+- Groq fallback model: `openai/gpt-oss-20b`
+- Improve model: `gpt-5.4-mini`
 - Optional setup model: `gpt-4.1-mini`
 
 ## Live Interview Reliability
@@ -79,17 +80,18 @@ hidden context and previous answer memory, and caps the response length.
 Optional `.env` knobs:
 
 ```text
+OPENAI_TEXT_MODEL=gpt-4.1-mini
+OPENAI_IMPROVE_MODEL=gpt-5.4-mini
 GROQ_API_KEY_2=...
 OPENAI_API_KEY=...
-OPENAI_FALLBACK_MODEL=gpt-4.1-mini
 LLM_REQUEST_TIMEOUT_SECONDS=30
 LLM_FIRST_WAIT_NOTICE_SECONDS=10
 ```
 
-If the primary Groq model hits a timeout or rate limit, the backend tries the
-same model with `GROQ_API_KEY_2`, then OpenAI fallback when `OPENAI_API_KEY` is
-available. The UI also shows the planned model chain, actual answering model,
-and estimated prompt tokens in `Context used`.
+Live answers use OpenAI first when `OPENAI_API_KEY` is available, then fall back
+to Groq key 1 and Groq key 2 with the same `openai/gpt-oss-20b` model. Improve
+answers use `OPENAI_IMPROVE_MODEL`. The UI also shows the planned model chain,
+actual answering model, and estimated prompt tokens in `Context used`.
 
 ## Notes
 

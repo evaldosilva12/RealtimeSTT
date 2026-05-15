@@ -406,8 +406,8 @@ function renderContextInspector(inspector) {
         <div class="inspector-meta">
             Model: ${escapeHtml(models.primary || "unknown")}
             ${plannedModels ? ` | Planned: ${escapeHtml(plannedModels)}` : ""}
-            ${models.groq_secondary ? ` | Groq secondary: ${escapeHtml(models.groq_secondary)}` : ""}
-            ${models.openai_fallback ? ` | OpenAI fallback: ${escapeHtml(models.openai_fallback)}` : ""}
+            ${models.groq_primary ? ` | Groq key 1: ${escapeHtml(models.groq_primary)}` : ""}
+            ${models.groq_secondary ? ` | Groq key 2: ${escapeHtml(models.groq_secondary)}` : ""}
         </div>
         ${assessment.message ? `<div class="inspector-meta">${escapeHtml(assessment.message)}</div>` : ""}
         ${priorityItems ? `<ol class="inspector-priority">${priorityItems}</ol>` : ""}

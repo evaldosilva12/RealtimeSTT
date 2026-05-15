@@ -43,7 +43,9 @@ class Settings:
     )
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
     openai_setup_model = os.getenv("OPENAI_SETUP_MODEL", "gpt-4.1-mini")
-    openai_fallback_model = os.getenv("OPENAI_FALLBACK_MODEL", openai_setup_model)
+    openai_text_model = os.getenv("OPENAI_TEXT_MODEL", "gpt-4.1-mini")
+    openai_improve_model = os.getenv("OPENAI_IMPROVE_MODEL", "gpt-5.4-mini")
+    openai_fallback_model = os.getenv("OPENAI_FALLBACK_MODEL", openai_text_model)
     llm_request_timeout_seconds = float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "30"))
     llm_first_wait_notice_seconds = float(os.getenv("LLM_FIRST_WAIT_NOTICE_SECONDS", "10"))
     db_path = BASE_DIR / "interview_runtime.sqlite3"

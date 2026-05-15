@@ -131,15 +131,19 @@ class LLMService:
         if not self.openai_enabled:
             raise LLMRequestError("OpenAI fallback is not configured. Add OPENAI_API_KEY to enable it.")
 
-        response = await asyncio.to_thread(
-            self._complete_openai,
+        loop = asyncio.get_running_loop()
+
+        def emit_delta(delta: str) -> None:
+            asyncio.run_coroutine_threadsafe(on_delta(delta), loop).result(timeout=10)
+
+        return await asyncio.to_thread(
+            self._stream_openai,
             messages,
             model or settings.openai_fallback_model,
             temperature,
             max_tokens,
+            emit_delta,
         )
-        await on_delta(response)
-        return response
 
     async def complete_chat(
         self,
@@ -179,14 +183,8 @@ class LLMService:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        payload = json.dumps(
-            {
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            }
-        ).encode("utf-8")
+        payload_data = self._openai_payload(messages, model, temperature, max_tokens)
+        payload = json.dumps(payload_data).encode("utf-8")
         request = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
             data=payload,
@@ -206,6 +204,90 @@ class LLMService:
             raise LLMRequestError(f"OpenAI request failed: {exc.reason}") from exc
 
         return str(body["choices"][0]["message"]["content"]).strip()
+
+    def _stream_openai(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        emit_delta: Callable[[str], None],
+    ) -> str:
+        payload_data = self._openai_payload(messages, model, temperature, max_tokens)
+        payload_data["stream"] = True
+        payload = json.dumps(payload_data).encode("utf-8")
+        request = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        chunks: list[str] = []
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                for raw_line in response:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line.removeprefix("data:").strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        body = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    error = body.get("error")
+                    if error:
+                        raise LLMRequestError(f"OpenAI request failed: {self._format_provider_error(error)}")
+                    choices = body.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta", {}).get("content") or ""
+                    if delta:
+                        text = str(delta)
+                        chunks.append(text)
+                        emit_delta(text)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise LLMRequestError(f"OpenAI request failed: {self._extract_error_message(detail)}") from exc
+        except urllib.error.URLError as exc:
+            raise LLMRequestError(f"OpenAI request failed: {exc.reason}") from exc
+        except TimeoutError as exc:
+            raise LLMRequestError("OpenAI request timed out.") from exc
+
+        return "".join(chunks).strip()
+
+    def _openai_payload(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict[str, Any]:
+        payload_data: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+        }
+        if self._uses_max_completion_tokens(model):
+            payload_data["max_completion_tokens"] = max_tokens
+        else:
+            payload_data["temperature"] = temperature
+            payload_data["max_tokens"] = max_tokens
+        return payload_data
+
+    @staticmethod
+    def _uses_max_completion_tokens(model: str) -> bool:
+        normalized = (model or "").lower()
+        return normalized.startswith(("gpt-5", "o1", "o3", "o4"))
+
+    @staticmethod
+    def _format_provider_error(error: Any) -> str:
+        if isinstance(error, dict):
+            return str(error.get("message") or error)
+        return str(error)
 
     @staticmethod
     def _extract_error_message(detail: str) -> str:
