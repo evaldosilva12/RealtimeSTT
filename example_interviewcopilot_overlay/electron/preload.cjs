@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { clipboard, contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("interviewCopilot", {
   webSocketUrl: "ws://localhost:8015",
@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("interviewCopilot", {
   toggleLock: () => ipcRenderer.invoke("overlay:toggle-lock"),
   setOpacity: (opacity) => ipcRenderer.invoke("overlay:set-opacity", opacity),
   getOverlayState: () => ipcRenderer.invoke("overlay:get-state"),
+  copyText: (text) => clipboard.writeText(String(text || "")),
   onBackendStatus: (callback) => {
     ipcRenderer.on("backend:status", (_event, status) => callback(status));
   },

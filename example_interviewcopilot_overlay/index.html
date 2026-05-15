@@ -32,6 +32,7 @@
             <div class="command-cluster" aria-label="AI quick actions">
                 <div class="command-row primary-actions">
                     <button id="answerRecent" class="primary-soft">Answer</button>
+                    <button id="quickAnswerRecent" title="Faster, shorter answer with less live context">Quick</button>
                     <button id="clarifyRecent">Clarify</button>
                     <button id="askRecent">Ask interviewer</button>
                     <button id="exampleRecent">Example</button>
@@ -136,6 +137,13 @@
                     <input id="overlayOpacity" type="range" min="35" max="100" step="5" value="100">
                     <output id="overlayOpacityValue" for="overlayOpacity">100%</output>
                 </label>
+            </section>
+            <section class="session-export" aria-label="Session export">
+                <div>
+                    <span>Session notes</span>
+                    <small>Copy interviewer questions and generated answers for prompt testing.</small>
+                </div>
+                <button id="copyInterviewHistory" type="button">Copy Q/A</button>
             </section>
             <div class="settings-grid">
                 <label>

@@ -747,6 +747,14 @@ h2 {
     font-size: 11px;
 }
 
+.utterance-actions .delete-utterance {
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+    color: var(--danger);
+    font-weight: 800;
+}
+
 .response-tools {
     display: flex;
     flex-wrap: wrap;
@@ -757,6 +765,25 @@ h2 {
     min-height: 28px;
     padding: 3px 6px;
     font-size: 11px;
+}
+
+.response-tools .delete-response {
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+    color: var(--danger);
+    font-weight: 800;
+}
+
+.response-status {
+    margin: 8px 0 0;
+    border: 1px solid rgba(255, 209, 102, 0.35);
+    border-radius: 6px;
+    background: rgba(255, 209, 102, 0.08);
+    color: var(--warn);
+    padding: 7px 9px;
+    font-size: 12px;
+    line-height: 1.35;
 }
 
 .settings-dialog {
@@ -803,7 +830,7 @@ h2 {
     font-size: 13px;
 }
 
-.overlay-setup {
+.overlay-setup, .session-export {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -814,13 +841,13 @@ h2 {
     padding: 12px;
 }
 
-.overlay-setup span {
+.overlay-setup span, .session-export span {
     display: block;
     color: var(--text);
     font-weight: 700;
 }
 
-.overlay-setup small {
+.overlay-setup small, .session-export small {
     display: block;
     margin-top: 3px;
     color: var(--muted);

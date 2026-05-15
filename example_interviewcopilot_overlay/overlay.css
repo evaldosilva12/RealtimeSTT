@@ -65,9 +65,9 @@ button:hover {
 }
 
 .overlay-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(190px, 1fr) auto auto;
+    align-items: start;
     gap: 10px;
 }
 
@@ -116,11 +116,37 @@ button:hover {
     color: var(--danger);
 }
 
-.window-tools, .answer-toolbar {
+.window-tools, .top-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     -webkit-app-region: no-drag;
+}
+
+.top-actions {
+    justify-content: flex-end;
+}
+
+.window-tools {
+    justify-content: flex-end;
+}
+
+.close-button {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+    font-weight: 700;
+}
+
+.response-status {
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 209, 102, 0.35);
+    border-radius: 6px;
+    background: rgba(255, 209, 102, 0.08);
+    color: var(--warn);
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.35;
 }
 
 .live-section {
@@ -176,6 +202,16 @@ button:hover {
     font-size: 11px;
 }
 
+.delete-utterance {
+    width: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    color: var(--danger);
+    font-size: 11px;
+    font-weight: 800;
+}
+
 .utterance-text {
     color: var(--text);
     font-size: 13px;
@@ -184,7 +220,6 @@ button:hover {
 
 .answer-section {
     display: grid;
-    gap: 8px;
     min-height: 132px;
 }
 
@@ -212,4 +247,21 @@ button:hover {
     font-size: 13px;
     line-height: 1.42;
     white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+    .overlay-header {
+        grid-template-columns: 1fr auto;
+    }
+
+    .top-actions {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+    }
+
+    .window-tools {
+        grid-column: 2;
+        grid-row: 1;
+    }
 }

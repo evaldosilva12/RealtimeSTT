@@ -18,11 +18,16 @@
                     <span id="modeStatus" class="status-pill">Interactive</span>
                 </div>
             </div>
+            <div class="top-actions" aria-label="Transcript actions">
+                <button id="answerRecent" type="button" class="primary">Answer</button>
+                <button id="quickAnswerRecent" type="button" title="Faster, shorter answer with less live context">Quick</button>
+                <button id="clarifyRecent" type="button">Clarify</button>
+                <button id="recoverRecent" type="button">Recover</button>
+                <button id="mergeRecent" type="button" title="Merge the latest transcript with the previous one">Merge</button>
+            </div>
             <nav class="window-tools" aria-label="Overlay controls">
-                <button id="showControl" type="button" title="Open control window">Control</button>
-                <button id="toggleLock" type="button" title="Lock overlay position">Lock</button>
                 <button id="togglePassThrough" type="button" title="Let clicks pass through overlay">Pass</button>
-                <button id="hideOverlay" type="button" title="Hide overlay">Hide</button>
+                <button id="hideOverlay" type="button" class="close-button" aria-label="Hide overlay" title="Hide overlay">X</button>
             </nav>
         </header>
 
@@ -32,14 +37,9 @@
         </section>
 
         <section class="answer-section" aria-label="AI response">
-            <div class="answer-toolbar">
-                <button id="answerRecent" type="button" class="primary">Answer</button>
-                <button id="clarifyRecent" type="button">Clarify</button>
-                <button id="recoverRecent" type="button">Recover</button>
-                <button id="copyResponse" type="button">Copy</button>
-            </div>
             <article id="activeResponse" class="active-response">
                 <div class="response-meta">No active response</div>
+                <div id="responseStatus" class="response-status" hidden></div>
                 <div id="responseBody" class="response-body">Waiting for transcript or an action.</div>
             </article>
         </section>

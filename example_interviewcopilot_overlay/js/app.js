@@ -1,4 +1,10 @@
-import { handleActionEvent, requestAction, requestLastN } from "./actions.js";
+import {
+    copyInterviewHistory,
+    handleActionEvent,
+    handleSessionExportEvent,
+    requestAction,
+    requestLastN,
+} from "./actions.js";
 import {
     listAudioInputs,
     startMyHiddenContext,
@@ -16,7 +22,13 @@ import {
     markProfileGenerating,
     renderProfiles,
 } from "./settings.js";
-import { renderFinal, renderPartial, setUtteranceClickHandler } from "./transcript.js";
+import {
+    applyTranscriptDelete,
+    applyTranscriptMerge,
+    renderFinal,
+    renderPartial,
+    setUtteranceClickHandler,
+} from "./transcript.js";
 
 const socketStatus = document.getElementById("socketStatus");
 const sttStatus = document.getElementById("sttStatus");
@@ -74,6 +86,11 @@ function handleEvent(event) {
         return;
     }
 
+    if (event.type === "session.export_history") {
+        handleSessionExportEvent(event);
+        return;
+    }
+
     if (event.type === "profile.generation.started") {
         markProfileGenerating(event.profile_id);
         return;
@@ -96,6 +113,26 @@ function handleEvent(event) {
 
     if (event.type === "transcript.final") {
         renderFinal(event);
+        return;
+    }
+
+    if (event.type === "transcript.merged_previous") {
+        applyTranscriptMerge(event);
+        return;
+    }
+
+    if (event.type === "transcript.deleted") {
+        applyTranscriptDelete(event);
+        return;
+    }
+
+    if (event.type === "transcript.merge_error") {
+        console.warn(event.message);
+        return;
+    }
+
+    if (event.type === "transcript.delete_error") {
+        console.warn(event.message);
         return;
     }
 
@@ -127,6 +164,9 @@ function initActions() {
         button.addEventListener("click", () => requestLastN(Number(button.dataset.count)));
     });
     document.getElementById("answerRecent").addEventListener("click", () => requestLastN(4, "answer_last_n"));
+    document.getElementById("quickAnswerRecent").addEventListener("click", () => (
+        requestLastN(3, "answer_last_n", { response_mode: "quick" })
+    ));
     document.getElementById("clarifyRecent").addEventListener("click", () => requestLastN(4, "clarify"));
     document.getElementById("askRecent").addEventListener("click", () => requestLastN(4, "ask_question"));
     document.getElementById("exampleRecent").addEventListener("click", () => requestLastN(4, "give_example"));
@@ -135,6 +175,9 @@ function initActions() {
     document.getElementById("summarizeContext").addEventListener("click", () => requestLastN(8, "summarize_context"));
     document.getElementById("nextStepAction").addEventListener("click", () => requestLastN(6, "next_step"));
     document.getElementById("screenshotAction").addEventListener("click", () => requestAction("screenshot_code_help"));
+    document.getElementById("copyInterviewHistory").addEventListener("click", (event) => {
+        copyInterviewHistory(event.currentTarget);
+    });
 }
 
 function initAudioControls() {

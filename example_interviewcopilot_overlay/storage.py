@@ -122,6 +122,39 @@ class Storage:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def get_utterance(self, utterance_id: str, session_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            """
+            SELECT * FROM utterances
+            WHERE id = ? AND session_id = ?
+            """,
+            (utterance_id, session_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def update_utterance_text(self, utterance_id: str, session_id: str, text: str) -> bool:
+        cursor = self.connection.execute(
+            """
+            UPDATE utterances
+            SET text = ?
+            WHERE id = ? AND session_id = ?
+            """,
+            (text, utterance_id, session_id),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
+    def delete_utterance(self, utterance_id: str, session_id: str) -> bool:
+        cursor = self.connection.execute(
+            """
+            DELETE FROM utterances
+            WHERE id = ? AND session_id = ?
+            """,
+            (utterance_id, session_id),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
     def save_hidden_context(self, context_id: str, session_id: str, text: str) -> None:
         self.connection.execute(
             """
@@ -171,6 +204,17 @@ class Storage:
         )
         self.connection.commit()
 
+    def delete_action(self, action_id: str, session_id: str) -> bool:
+        cursor = self.connection.execute(
+            """
+            DELETE FROM actions
+            WHERE id = ? AND session_id = ?
+            """,
+            (action_id, session_id),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
     def recent_completed_actions(self, session_id: str, limit: int = 5) -> list[dict[str, Any]]:
         rows = self.connection.execute(
             """
@@ -182,6 +226,45 @@ class Storage:
             (session_id, limit),
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def export_session_history(self, session_id: str) -> str:
+        utterances = self.connection.execute(
+            """
+            SELECT text, created_at FROM utterances
+            WHERE session_id = ? AND source = 'other' AND status = 'final' AND text != ''
+            ORDER BY created_at ASC
+            """,
+            (session_id,),
+        ).fetchall()
+        actions = self.connection.execute(
+            """
+            SELECT source_text, response, completed_at, created_at FROM actions
+            WHERE session_id = ? AND status = 'completed' AND response != ''
+            ORDER BY COALESCE(completed_at, created_at) ASC
+            """,
+            (session_id,),
+        ).fetchall()
+
+        sections = []
+        transcript_lines = [f"Q: {self._normalize_export_text(row['text'])}" for row in utterances]
+        transcript_lines = [line for line in transcript_lines if line != "Q: "]
+        if transcript_lines:
+            sections.append("\n".join(["INTERVIEWER TRANSCRIPT", *transcript_lines]))
+
+        answer_lines = []
+        for row in actions:
+            source_text = self._normalize_export_text(row["source_text"] or "(no source captured)")
+            response = self._normalize_export_text(row["response"])
+            if response:
+                answer_lines.extend([f"Q: {source_text}", f"A: {response}"])
+        if answer_lines:
+            sections.append("\n".join(["GENERATED ANSWERS", *answer_lines]))
+
+        return "\n\n".join(sections)
+
+    @staticmethod
+    def _normalize_export_text(text: str) -> str:
+        return " ".join(str(text or "").split())
 
     def dump_recent_state(self, session_id: str) -> dict[str, Any]:
         return {

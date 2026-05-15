@@ -70,6 +70,27 @@ or the Electron app with `npm start`.
 - Improve/quality model: `llama-3.3-70b-versatile`
 - Optional setup model: `gpt-4.1-mini`
 
+## Live Interview Reliability
+
+The control window and overlay include a `Quick` action for faster, shorter
+answers. Quick mode keeps the full resume, but uses less live transcript,
+hidden context and previous answer memory, and caps the response length.
+
+Optional `.env` knobs:
+
+```text
+GROQ_API_KEY_2=...
+OPENAI_API_KEY=...
+OPENAI_FALLBACK_MODEL=gpt-4.1-mini
+LLM_REQUEST_TIMEOUT_SECONDS=30
+LLM_FIRST_WAIT_NOTICE_SECONDS=10
+```
+
+If the primary Groq model hits a timeout or rate limit, the backend tries the
+same model with `GROQ_API_KEY_2`, then OpenAI fallback when `OPENAI_API_KEY` is
+available. The UI also shows the planned model chain, actual answering model,
+and estimated prompt tokens in `Context used`.
+
 ## Notes
 
 This folder was intentionally copied with local runtime files such as `.env`,

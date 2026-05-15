@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -51,6 +52,16 @@ async def handle_json(message: dict[str, Any]) -> None:
 
     if message_type == "profiles.get":
         await emit_profiles()
+        return
+
+    if message_type == "session.export_history":
+        await emit(
+            {
+                "type": "session.export_history",
+                "request_id": message.get("request_id"),
+                "text": storage.export_session_history(session_id),
+            }
+        )
         return
 
     if message_type == "profile.save":
@@ -119,6 +130,23 @@ async def handle_json(message: dict[str, Any]) -> None:
             await action_service.cancel(str(message.get("action_id") or ""))
         return
 
+    if message_type == "action.delete":
+        action_id = str(message.get("action_id") or "")
+        if action_service is not None:
+            await action_service.cancel(action_id)
+        if action_id:
+            storage.delete_action(action_id, session_id)
+            await emit({"type": "action.deleted", "action_id": action_id})
+        return
+
+    if message_type == "transcript.merge_previous":
+        await merge_previous_transcript(message)
+        return
+
+    if message_type == "transcript.delete":
+        await delete_transcript(message)
+        return
+
     if message_type == "context.my_note":
         text = str(message.get("text") or "").strip()
         if text:
@@ -136,6 +164,71 @@ async def handle_json(message: dict[str, Any]) -> None:
     await emit({"type": "connection.status", "warning": f"Unknown event: {message_type}"})
 
 
+async def merge_previous_transcript(message: dict[str, Any]) -> None:
+    current_display_id = str(message.get("utterance_id") or "").strip()
+    previous_display_id = str(message.get("previous_utterance_id") or "").strip()
+    merged_text = re.sub(r"\s+", " ", str(message.get("merged_text") or "")).strip()
+    if not current_display_id or not previous_display_id or not merged_text:
+        await emit({"type": "transcript.merge_error", "message": "Missing transcript merge data."})
+        return
+
+    current_id = _storage_utterance_id(current_display_id)
+    previous_id = _storage_utterance_id(previous_display_id)
+    if current_id == previous_id:
+        storage.update_utterance_text(current_id, session_id, merged_text)
+        await emit(
+            {
+                "type": "transcript.merged_previous",
+                "utterance_id": current_display_id,
+                "previous_utterance_id": previous_display_id,
+                "text": merged_text,
+            }
+        )
+        return
+
+    current_row = storage.get_utterance(current_id, session_id)
+    previous_row = storage.get_utterance(previous_id, session_id)
+    if current_row:
+        storage.update_utterance_text(current_id, session_id, merged_text)
+        if previous_row:
+            storage.delete_utterance(previous_id, session_id)
+    elif previous_row:
+        storage.update_utterance_text(previous_id, session_id, merged_text)
+
+    await emit(
+        {
+            "type": "transcript.merged_previous",
+            "utterance_id": current_display_id,
+            "previous_utterance_id": previous_display_id,
+            "text": merged_text,
+        }
+    )
+
+
+def _storage_utterance_id(display_id: str) -> str:
+    return re.sub(r"-\d+$", "", display_id)
+
+
+async def delete_transcript(message: dict[str, Any]) -> None:
+    display_id = str(message.get("utterance_id") or "").strip()
+    if not display_id:
+        await emit({"type": "transcript.delete_error", "message": "Missing transcript id."})
+        return
+
+    storage_id = _storage_utterance_id(display_id)
+    replacement_text = re.sub(r"\s+", " ", str(message.get("replacement_text") or "")).strip()
+    if replacement_text:
+        storage.update_utterance_text(storage_id, session_id, replacement_text)
+    else:
+        storage.delete_utterance(storage_id, session_id)
+    await emit(
+        {
+            "type": "transcript.deleted",
+            "utterance_id": display_id,
+        }
+    )
+
+
 async def emit_profiles() -> None:
     active_profile = storage.get_active_interview_profile() or storage.ensure_default_interview_profile()
     await emit(
@@ -144,6 +237,7 @@ async def emit_profiles() -> None:
             "profiles": storage.list_interview_profiles(),
             "active_profile": active_profile,
             "openai_setup": "configured" if llm_service.openai_enabled else "not_configured",
+            "groq_secondary_setup": "configured" if llm_service.secondary_enabled else "not_configured",
         }
     )
 
@@ -156,10 +250,11 @@ async def websocket_handler(websocket, path=None) -> None:
                 "type": "connection.status",
                 "session_id": session_id,
                 "stt": "ready" if stt_service and stt_service.ready.is_set() else "starting",
-                "llm": "configured" if llm_service.enabled else "missing_api_key",
+                "llm": "configured" if (llm_service.enabled or llm_service.secondary_enabled or llm_service.openai_enabled) else "missing_api_key",
                 "profiles": storage.list_interview_profiles(),
                 "active_profile": storage.get_active_interview_profile(),
                 "openai_setup": "configured" if llm_service.openai_enabled else "not_configured",
+                "groq_secondary_setup": "configured" if llm_service.secondary_enabled else "not_configured",
             },
             ensure_ascii=True,
         )
@@ -190,8 +285,10 @@ async def main() -> None:
 
     logging.info("Interview Copilot session_id=%s", session_id)
     logging.info("WebSocket listening on ws://%s:%s", settings.host, settings.ws_port)
-    if not llm_service.enabled:
-        logging.warning("GROQ_API_KEY missing. LLM actions will report a setup error.")
+    if not llm_service.enabled and not llm_service.secondary_enabled and not llm_service.openai_enabled:
+        logging.warning("No LLM API keys configured. LLM actions will report a setup error.")
+    if llm_service.secondary_enabled:
+        logging.info("Secondary Groq fallback is configured.")
     if llm_service.openai_enabled:
         logging.info("OpenAI setup profile generation is configured.")
 

@@ -8,7 +8,10 @@ const modeStatus = document.getElementById("modeStatus");
 const timeline = document.getElementById("timeline");
 const partial = document.getElementById("partialTranscript");
 const activeResponse = document.getElementById("activeResponse");
+const responseStatus = document.getElementById("responseStatus");
 const responseBody = document.getElementById("responseBody");
+const mergeRecentButton = document.getElementById("mergeRecent");
+mergeRecentButton.disabled = true;
 
 let livePreview = null;
 let activeActionId = null;
@@ -29,9 +32,38 @@ function requestAction(actionType, options = {}) {
     });
 }
 
-function requestLastN(count, actionType = "answer_last_n") {
+function requestLastN(count, actionType = "answer_last_n", options = {}) {
     const text = newestUtterances(count).map((item) => item.text).join(" ");
-    requestAction(actionType, { count, text });
+    requestAction(actionType, { count, text, ...options });
+}
+
+function requestMergeLatestWithPrevious() {
+    const [latest, previous] = sortedFinalUtterances();
+    if (!latest || !previous) {
+        return;
+    }
+    const mergedText = `${previous.text} ${latest.text}`.replace(/\s+/g, " ").trim();
+    sendJson({
+        type: "transcript.merge_previous",
+        utterance_id: latest.utterance_id,
+        previous_utterance_id: previous.utterance_id,
+        merged_text: mergedText,
+    });
+}
+
+function requestTranscriptDelete(item) {
+    const replacementText = siblingUtterances(item.utterance_id)
+        .filter((sibling) => sibling.utterance_id !== item.utterance_id)
+        .sort((a, b) => a.created_at - b.created_at)
+        .map((sibling) => sibling.text)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    sendJson({
+        type: "transcript.delete",
+        utterance_id: item.utterance_id,
+        replacement_text: replacementText,
+    });
 }
 
 function handleEvent(event) {
@@ -69,6 +101,16 @@ function handleEvent(event) {
 
     if (event.type === "transcript.final") {
         renderFinal(event);
+        return;
+    }
+
+    if (event.type === "transcript.merged_previous") {
+        applyTranscriptMerge(event);
+        return;
+    }
+
+    if (event.type === "transcript.deleted") {
+        applyTranscriptDelete(event);
         return;
     }
 
@@ -110,12 +152,32 @@ function renderFinal(event) {
     renderTimeline();
 }
 
+function applyTranscriptMerge(event) {
+    const current = state.utterances.get(event.utterance_id);
+    const previous = state.utterances.get(event.previous_utterance_id);
+    if (!current || !previous) {
+        return;
+    }
+    state.utterances.set(event.utterance_id, {
+        ...current,
+        text: event.text,
+    });
+    state.utterances.delete(event.previous_utterance_id);
+    renderTimeline();
+}
+
+function applyTranscriptDelete(event) {
+    if (!state.utterances.has(event.utterance_id)) {
+        return;
+    }
+    state.utterances.delete(event.utterance_id);
+    renderTimeline();
+}
+
 function renderTimeline() {
-    const finals = [...state.utterances.values()]
-        .filter((item) => item.status === "final" && item.source === "other")
-        .sort((a, b) => b.created_at - a.created_at)
-        .slice(0, 5);
+    const finals = sortedFinalUtterances().slice(0, 5);
     const items = livePreview ? [livePreview, ...finals] : finals;
+    mergeRecentButton.disabled = sortedFinalUtterances().length < 2;
     timeline.innerHTML = "";
 
     for (const item of items) {
@@ -130,6 +192,20 @@ function renderTimeline() {
         text.className = "utterance-text";
         text.textContent = item.text;
 
+        if (!item.isLive) {
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "delete-utterance";
+            deleteButton.textContent = "X";
+            deleteButton.title = "Delete this transcript";
+            deleteButton.setAttribute("aria-label", "Delete this transcript");
+            deleteButton.addEventListener("click", (clickEvent) => {
+                clickEvent.stopPropagation();
+                requestTranscriptDelete(item);
+            });
+            header.appendChild(deleteButton);
+        }
+
         card.append(header, text);
         card.addEventListener("click", () => requestAction("answer_as_me", {
             text: item.text,
@@ -139,13 +215,42 @@ function renderTimeline() {
     }
 }
 
+function sortedFinalUtterances() {
+    return [...state.utterances.values()]
+        .filter((item) => item.status === "final" && item.source === "other")
+        .sort((a, b) => b.created_at - a.created_at);
+}
+
+function siblingUtterances(utteranceId) {
+    const baseId = storageUtteranceId(utteranceId);
+    return [...state.utterances.values()].filter((item) => storageUtteranceId(item.utterance_id) === baseId);
+}
+
+function storageUtteranceId(utteranceId) {
+    return utteranceId.replace(/-\d+$/, "");
+}
+
 function handleActionEvent(event) {
     if (event.type === "action.requested") {
         activeActionId = event.action_id;
         activeResponseText = "";
         activeResponse.querySelector(".response-meta").textContent = event.label || event.action_type || "Action";
+        responseStatus.hidden = true;
+        responseStatus.textContent = "";
         responseBody.textContent = "Thinking...";
         activeResponse.className = "active-response running";
+        return;
+    }
+
+    if (event.type === "action.status" && event.action_id === activeActionId) {
+        responseStatus.hidden = false;
+        responseStatus.textContent = event.message || "";
+        return;
+    }
+
+    if (event.type === "action.reset" && event.action_id === activeActionId) {
+        activeResponseText = "";
+        responseBody.textContent = "Retrying with fallback...";
         return;
     }
 
@@ -156,8 +261,12 @@ function handleActionEvent(event) {
     }
 
     if (event.type === "action.completed" && event.action_id === activeActionId) {
-        activeResponseText = event.response || activeResponseText;
-        responseBody.textContent = activeResponseText || "Completed.";
+        activeResponseText = (event.response || activeResponseText || "").trim();
+        responseBody.textContent = activeResponseText || "Completed, but no answer text was returned.";
+        if (event.model_info?.provider && event.model_info?.model) {
+            responseStatus.hidden = false;
+            responseStatus.textContent = `Answered by ${formatProviderLabel(event.model_info)} ${event.model_info.model}`;
+        }
         activeResponse.className = "active-response";
         return;
     }
@@ -173,6 +282,13 @@ function handleActionEvent(event) {
         responseBody.textContent = event.message || "Action failed.";
         activeResponse.className = "active-response error";
     }
+}
+
+function formatProviderLabel(providerOrInfo) {
+    if (providerOrInfo?.provider_label) {
+        return providerOrInfo.provider_label;
+    }
+    return String(providerOrInfo?.provider || providerOrInfo || "provider").replaceAll("_", " ");
 }
 
 function splitFinalText(text) {
@@ -223,16 +339,13 @@ function renderOverlayState(stateUpdate) {
 }
 
 document.getElementById("answerRecent").addEventListener("click", () => requestLastN(4, "answer_last_n"));
+document.getElementById("quickAnswerRecent").addEventListener("click", () => (
+    requestLastN(3, "answer_last_n", { response_mode: "quick" })
+));
 document.getElementById("clarifyRecent").addEventListener("click", () => requestLastN(4, "clarify"));
 document.getElementById("recoverRecent").addEventListener("click", () => requestLastN(6, "recover_answer"));
-document.getElementById("copyResponse").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(activeResponseText || responseBody.textContent || "");
-});
+document.getElementById("mergeRecent").addEventListener("click", requestMergeLatestWithPrevious);
 
-document.getElementById("showControl").addEventListener("click", () => window.interviewCopilot?.showControl());
-document.getElementById("toggleLock").addEventListener("click", async () => {
-    renderOverlayState(await window.interviewCopilot?.toggleLock());
-});
 document.getElementById("togglePassThrough").addEventListener("click", async () => {
     renderOverlayState(await window.interviewCopilot?.togglePassThrough());
 });
