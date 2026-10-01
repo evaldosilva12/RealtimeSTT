@@ -122,6 +122,25 @@ class Storage:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def utterances_until(
+        self,
+        session_id: str,
+        created_at: float,
+        limit: int,
+        source: str = "other",
+    ) -> list[dict[str, Any]]:
+        """Final utterances up to and including `created_at`, oldest first."""
+        rows = self.connection.execute(
+            """
+            SELECT * FROM utterances
+            WHERE session_id = ? AND source = ? AND status = 'final' AND created_at <= ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (session_id, source, created_at, limit),
+        ).fetchall()
+        return [dict(row) for row in reversed(rows)]
+
     def get_utterance(self, utterance_id: str, session_id: str) -> dict[str, Any] | None:
         row = self.connection.execute(
             """

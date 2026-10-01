@@ -13,3 +13,4 @@ tmp/
 *.tmp-*
 
 venv/
+compare_results/

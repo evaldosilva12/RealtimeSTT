@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Awaitable, Callable
@@ -215,6 +217,7 @@ class LLMService:
     ) -> str:
         payload_data = self._openai_payload(messages, model, temperature, max_tokens)
         payload_data["stream"] = True
+        payload_data["stream_options"] = {"include_usage": True}
         payload = json.dumps(payload_data).encode("utf-8")
         request = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
@@ -226,8 +229,11 @@ class LLMService:
             method="POST",
         )
         chunks: list[str] = []
+        started = time.perf_counter()
+        first_delta_at: float | None = None
+        usage: dict[str, Any] = {}
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with urllib.request.urlopen(request, timeout=settings.llm_request_timeout_seconds) as response:
                 for raw_line in response:
                     line = raw_line.decode("utf-8", errors="replace").strip()
                     if not line or not line.startswith("data:"):
@@ -242,11 +248,15 @@ class LLMService:
                     error = body.get("error")
                     if error:
                         raise LLMRequestError(f"OpenAI request failed: {self._format_provider_error(error)}")
+                    if body.get("usage"):
+                        usage = body["usage"]
                     choices = body.get("choices") or []
                     if not choices:
                         continue
                     delta = choices[0].get("delta", {}).get("content") or ""
                     if delta:
+                        if first_delta_at is None:
+                            first_delta_at = time.perf_counter() - started
                         text = str(delta)
                         chunks.append(text)
                         emit_delta(text)
@@ -258,7 +268,24 @@ class LLMService:
         except TimeoutError as exc:
             raise LLMRequestError("OpenAI request timed out.") from exc
 
+        self._log_openai_usage(model, started, first_delta_at, usage)
         return "".join(chunks).strip()
+
+    @staticmethod
+    def _log_openai_usage(model: str, started: float, first_delta_at: float | None, usage: dict[str, Any]) -> None:
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+        reasoning = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
+        logging.info(
+            "OpenAI %s first_token=%.2fs total=%.2fs prompt=%s cached=%s completion=%s reasoning=%s",
+            model,
+            first_delta_at if first_delta_at is not None else -1,
+            time.perf_counter() - started,
+            prompt_tokens,
+            cached,
+            usage.get("completion_tokens", 0),
+            reasoning,
+        )
 
     def _openai_payload(
         self,
@@ -272,7 +299,12 @@ class LLMService:
             "messages": messages,
         }
         if self._uses_max_completion_tokens(model):
-            payload_data["max_completion_tokens"] = max_tokens
+            # Reasoning-style models: no temperature, token cap includes reasoning.
+            effort = self._reasoning_effort(model)
+            if effort:
+                payload_data["reasoning_effort"] = effort
+            headroom = 0 if effort == "none" else 700
+            payload_data["max_completion_tokens"] = max_tokens + headroom
         else:
             payload_data["temperature"] = temperature
             payload_data["max_tokens"] = max_tokens
@@ -281,7 +313,19 @@ class LLMService:
     @staticmethod
     def _uses_max_completion_tokens(model: str) -> bool:
         normalized = (model or "").lower()
-        return normalized.startswith(("gpt-5", "o1", "o3", "o4"))
+        return normalized.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
+
+    @staticmethod
+    def _reasoning_effort(model: str) -> str:
+        """GPT-6 Luna accepts "none"; Sol/Astra need at least "low"."""
+        normalized = (model or "").lower()
+        if settings.openai_reasoning_effort:
+            return settings.openai_reasoning_effort
+        if normalized.startswith("gpt-6-luna"):
+            return "none"
+        if normalized.startswith("gpt-6"):
+            return "low"
+        return ""
 
     @staticmethod
     def _format_provider_error(error: Any) -> str:

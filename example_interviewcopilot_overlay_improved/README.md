@@ -24,13 +24,11 @@ npm install
 npm start
 ```
 
-Electron starts `python server.py` automatically. It first tries:
+Electron starts `python server.py` automatically. It first tries
+`venv\Scripts\python.exe` inside this folder, then
+`..\venv\Scripts\python.exe`, then `python` from PATH.
 
-```text
-C:\wamp64\www\RealtimeSTT\venv\Scripts\python.exe
-```
-
-If that file is missing, it falls back to `python` from PATH.
+Backend setup: see `requirements.txt` (torch must be the `cu121` build).
 
 ## Windows Shortcuts
 
@@ -66,10 +64,26 @@ or the Electron app with `npm start`.
 ## Defaults
 
 - WebSocket: `ws://localhost:8015`
-- Fast answer model: `gpt-4.1-mini`
+- Live answer model: `gpt-6-luna` (reasoning effort `none`)
+- Improve model: `gpt-6.1-sol` (reasoning effort `low`)
 - Groq fallback model: `openai/gpt-oss-20b`
-- Improve model: `gpt-5.4-mini`
-- Optional setup model: `gpt-4.1-mini`
+- Setup model (internal profile): `gpt-4.1-mini`
+
+GPT-6 models do not accept `temperature` or `max_tokens`; `llm_service.py`
+sends `max_completion_tokens` and `reasoning_effort` for them. Override the
+effort with `OPENAI_REASONING_EFFORT` (Sol does not accept `none`).
+
+## Prompt layout
+
+`prompt_builder.py` builds two messages. `system` is stable per profile
+(rules, resume, cover letter, job description, guardrails from the profile's
+"additional instructions") so the provider can cache it. `user` only carries
+the conversation before the selected text, the last answers, the selected text
+and the task. Profile data is never truncated. The server log prints the first
+token time and cached tokens for each OpenAI answer.
+
+`compare_prompts.py` re-runs a fixed set of interview questions across models
+and prompt versions and writes `compare_results/`.
 
 ## Live Interview Reliability
 

@@ -379,10 +379,6 @@ function renderContextInspector(inspector) {
                 <strong>${escapeHtml(inspector.profile_name || "Untitled Interview")}</strong>
             </div>
             <div>
-                <span class="inspector-label">Internal profile</span>
-                <strong>${inspector.has_internal_candidate_profile ? "present" : "missing"}</strong>
-            </div>
-            <div>
                 <span class="inspector-label">Prompt size</span>
                 <strong>${formatNumber(promptChars.total || 0)} chars</strong>
             </div>
