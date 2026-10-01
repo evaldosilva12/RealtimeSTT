@@ -32,6 +32,8 @@ class Settings:
     stt_model = os.getenv("MEETING_COPILOT_STT_MODEL", "medium.en")
     realtime_model = os.getenv("MEETING_COPILOT_REALTIME_MODEL", "tiny.en")
     language = os.getenv("MEETING_COPILOT_LANGUAGE", "en")
+    stt_post_speech_silence = float(os.getenv("STT_POST_SPEECH_SILENCE_SECONDS", "0.7"))
+    stt_silero_deactivity = os.getenv("STT_SILERO_DEACTIVITY", "true").lower() in ("1", "true", "yes")
     groq_api_key = os.getenv("GROQ_API_KEY", "")
     groq_api_key_2 = os.getenv("GROQ_API_KEY_2", "")
     groq_text_model = os.getenv("GROQ_TEXT_MODEL", "openai/gpt-oss-20b")

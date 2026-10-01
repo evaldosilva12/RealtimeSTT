@@ -16,8 +16,11 @@ let overlayLocked = false;
 let overlayOpacity = 1;
 
 function resolvePython() {
-  const venvPython = path.join(REPO_ROOT, "venv", "Scripts", "python.exe");
-  return fs.existsSync(venvPython) ? venvPython : "python";
+  const candidates = [
+    path.join(APP_DIR, "venv", "Scripts", "python.exe"),
+    path.join(REPO_ROOT, "venv", "Scripts", "python.exe"),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || "python";
 }
 
 function broadcast(channel, payload) {

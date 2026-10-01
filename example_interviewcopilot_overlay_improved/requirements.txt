@@ -1,0 +1,36 @@
+# Backend (Python 3.11) do Interview Copilot Overlay.
+# Versoes iguais as do venv que roda o app hoje.
+#
+# Instalacao (a partir desta pasta, com o venv ativo):
+#   pip install torch==2.3.1+cu121 torchaudio==2.3.1+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+#   pip install -e .. --no-deps     (RealtimeSTT; --no-deps evita puxar webrtcvad sem wheel)
+#
+# cu121 (CUDA 12) e obrigatorio: ctranslate2 4.3.1 precisa de cublas64_12.dll.
+# Sem GPU NVIDIA: instale torch/torchaudio 2.3.1 do PyPI (CPU) e use um modelo
+# STT menor (MEETING_COPILOT_STT_MODEL=small.en).
+
+# --- Motor STT: pacote RealtimeSTT 0.2.41 da raiz do repositorio ---
+# Instalado a parte com `pip install -e .. --no-deps` (veja o topo).
+
+# Dependencias do RealtimeSTT importadas por audio_recorder.py
+faster-whisper==1.0.3
+ctranslate2==4.3.1
+onnxruntime==1.19.0
+openwakeword==0.6.0
+pvporcupine==1.9.5
+webrtcvad-wheels==2.0.14   # mesmo modulo `webrtcvad`, ja compilado (evita exigir MSVC no Windows)
+halo==0.0.31
+PyAudio==0.2.14
+torch==2.3.1
+torchaudio==2.3.1
+
+# --- Usadas diretamente pelo app ---
+numpy==1.26.4
+scipy==1.12.0
+websockets==12.0
+groq==0.11.0
+httpx==0.27.2         # groq 0.11 quebra com httpx>=0.28 (argumento `proxies` removido)
+Pillow==10.4.0        # screenshot_code_help (ImageGrab)
+
+# OpenAI e chamado via urllib (sem SDK). Frontend: `npm install` (Electron).
