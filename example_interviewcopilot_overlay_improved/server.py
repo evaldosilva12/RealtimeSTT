@@ -68,15 +68,7 @@ async def handle_json(message: dict[str, Any]) -> None:
         profile = storage.save_interview_profile(message.get("profile") or {})
         storage.set_active_interview_profile(profile["id"])
         await emit_profiles()
-        if message.get("generate_internal"):
-            if action_service is None:
-                await emit({"type": "profile.error", "message": "Action service is not ready."})
-                return
-            await emit({"type": "profile.generation.started", "profile_id": profile["id"]})
-            internal_profile = await action_service.generate_internal_profile(profile)
-            storage.update_internal_candidate_profile(profile["id"], internal_profile)
-            await emit_profiles()
-            await emit({"type": "profile.generation.completed", "profile_id": profile["id"]})
+        warm_cache()
         return
 
     if message_type == "profile.select":
@@ -85,6 +77,7 @@ async def handle_json(message: dict[str, Any]) -> None:
             await emit({"type": "profile.error", "message": "Interview profile not found."})
             return
         await emit_profiles()
+        warm_cache()
         return
 
     if message_type == "profile.duplicate":
@@ -94,6 +87,7 @@ async def handle_json(message: dict[str, Any]) -> None:
             return
         storage.set_active_interview_profile(profile["id"])
         await emit_profiles()
+        warm_cache()
         return
 
     if message_type == "profile.archive":
@@ -101,21 +95,18 @@ async def handle_json(message: dict[str, Any]) -> None:
         await emit_profiles()
         return
 
-    if message_type == "profile.generate_internal":
+    if message_type == "profile.analyze":
         if action_service is None:
-            await emit({"type": "profile.error", "message": "Action service is not ready."})
+            await emit({"type": "profile.analysis.error", "message": "Action service is not ready."})
             return
-        profile = storage.get_interview_profile(str(message.get("profile_id") or ""))
-        if not profile:
-            profile = storage.get_active_interview_profile()
-        if not profile:
-            await emit({"type": "profile.error", "message": "Interview profile not found."})
+        await emit({"type": "profile.analysis.started"})
+        try:
+            result = await action_service.analyze_profile(message.get("profile") or {})
+        except Exception as exc:
+            logging.exception("profile analysis failed")
+            await emit({"type": "profile.analysis.error", "message": str(exc)})
             return
-        await emit({"type": "profile.generation.started", "profile_id": profile["id"]})
-        internal_profile = await action_service.generate_internal_profile(profile)
-        storage.update_internal_candidate_profile(profile["id"], internal_profile)
-        await emit_profiles()
-        await emit({"type": "profile.generation.completed", "profile_id": profile["id"]})
+        await emit({"type": "profile.analysis.completed", **result})
         return
 
     if message_type == "action.request":
@@ -149,16 +140,17 @@ async def handle_json(message: dict[str, Any]) -> None:
 
     if message_type == "context.my_note":
         text = str(message.get("text") or "").strip()
-        if text:
-            context_id = str(uuid.uuid4())
-            storage.save_hidden_context(context_id, session_id, text)
-            await emit(
-                {
-                    "type": "context.my_note.saved",
-                    "context_id": context_id,
-                    "text": text,
-                }
-            )
+        profile = storage.get_active_interview_profile()
+        if text and profile:
+            storage.add_interview_note(profile["id"], text, str(message.get("source") or "manual"))
+            await emit_notes()
+        return
+
+    if message_type == "context.notes.delete":
+        profile = storage.get_active_interview_profile()
+        if profile:
+            storage.delete_interview_note(str(message.get("note_id") or ""), profile["id"])
+            await emit_notes()
         return
 
     await emit({"type": "connection.status", "warning": f"Unknown event: {message_type}"})
@@ -229,6 +221,30 @@ async def delete_transcript(message: dict[str, Any]) -> None:
     )
 
 
+def warm_cache() -> None:
+    if action_service is not None:
+        action_service.warm_in_background()
+
+
+async def keep_cache_warm() -> None:
+    """While a client is connected, refresh the prompt cache before it expires."""
+    while True:
+        await asyncio.sleep(60)
+        if clients and action_service is not None:
+            await action_service.warm_cache()
+
+
+async def emit_notes() -> None:
+    profile = storage.get_active_interview_profile()
+    await emit(
+        {
+            "type": "context.notes.current",
+            "profile_id": profile["id"] if profile else "",
+            "notes": storage.list_interview_notes(profile["id"]) if profile else [],
+        }
+    )
+
+
 async def emit_profiles() -> None:
     active_profile = storage.get_active_interview_profile() or storage.ensure_default_interview_profile()
     await emit(
@@ -240,6 +256,7 @@ async def emit_profiles() -> None:
             "groq_secondary_setup": "configured" if llm_service.secondary_enabled else "not_configured",
         }
     )
+    await emit_notes()
 
 
 async def websocket_handler(websocket, path=None) -> None:
@@ -290,10 +307,11 @@ async def main() -> None:
     if llm_service.secondary_enabled:
         logging.info("Secondary Groq fallback is configured.")
     if llm_service.openai_enabled:
-        logging.info("OpenAI setup profile generation is configured.")
+        logging.info("OpenAI is configured (live answers and profile analysis).")
 
     async with websockets.serve(websocket_handler, settings.host, settings.ws_port):
-        await asyncio.Future()
+        warm_cache()
+        await keep_cache_warm()
 
 
 if __name__ == "__main__":

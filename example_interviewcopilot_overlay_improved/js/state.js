@@ -7,7 +7,7 @@ export const state = {
     profiles: [],
     activeProfile: null,
     openaiSetup: "not_configured",
-    hiddenContext: [],
+    notes: [],
 };
 
 export function newestUtterances(count = 4) {

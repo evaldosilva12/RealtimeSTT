@@ -16,10 +16,9 @@ import {
 import { connectSocket } from "./socket.js";
 import { state } from "./state.js";
 import {
-    appendHiddenContext,
     initSettings,
-    markProfileGenerated,
-    markProfileGenerating,
+    handleAnalysisEvent,
+    renderNotes,
     renderProfiles,
 } from "./settings.js";
 import {
@@ -91,13 +90,8 @@ function handleEvent(event) {
         return;
     }
 
-    if (event.type === "profile.generation.started") {
-        markProfileGenerating(event.profile_id);
-        return;
-    }
-
-    if (event.type === "profile.generation.completed") {
-        markProfileGenerated(event.profile_id);
+    if (event.type.startsWith("profile.analysis.")) {
+        handleAnalysisEvent(event);
         return;
     }
 
@@ -147,8 +141,8 @@ function handleEvent(event) {
         return;
     }
 
-    if (event.type === "context.my_note.saved") {
-        appendHiddenContext(event.text);
+    if (event.type === "context.notes.current") {
+        renderNotes(event.notes);
     }
 }
 

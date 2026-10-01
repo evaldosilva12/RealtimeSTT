@@ -45,6 +45,7 @@ class Settings:
     )
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
     openai_setup_model = os.getenv("OPENAI_SETUP_MODEL", "gpt-4.1-mini")
+    openai_analysis_model = os.getenv("OPENAI_ANALYSIS_MODEL", "gpt-6.1-sol")
     openai_text_model = os.getenv("OPENAI_TEXT_MODEL", "gpt-6-luna")
     openai_improve_model = os.getenv("OPENAI_IMPROVE_MODEL", "gpt-6.1-sol")
     openai_reasoning_effort = os.getenv("OPENAI_REASONING_EFFORT", "")

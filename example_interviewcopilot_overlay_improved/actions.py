@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import datetime
+import json
+import logging
 import re
 import tempfile
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -42,6 +46,7 @@ QUICK_CONVERSATION_BEFORE_LINES = 4
 QUICK_RESPONSE_MAX_TOKENS = 380
 DEFAULT_RESPONSE_MAX_TOKENS = 450
 NO_QUESTION_MARKER = "(No question yet."
+WARM_INTERVAL_SECONDS = 240
 
 
 class ActionService:
@@ -55,6 +60,8 @@ class ActionService:
         self.llm = llm
         self.emit = emit
         self.running: dict[str, asyncio.Task[Any]] = {}
+        self._last_warm: dict[str, float] = {}
+        self._background: set[asyncio.Task[Any]] = set()
 
     async def request(self, session_id: str, payload: dict[str, Any]) -> None:
         action_type = payload.get("action_type", "answer_as_me")
@@ -63,6 +70,37 @@ class ActionService:
         task = asyncio.create_task(self._run_action(session_id, action_id, action_type, payload))
         self.running[action_id] = task
         task.add_done_callback(lambda _: self.running.pop(action_id, None))
+
+    @staticmethod
+    def _warm_key(model: str, system_text: str) -> str:
+        return f"{model}:{hash(system_text)}"
+
+    def warm_in_background(self) -> None:
+        task = asyncio.create_task(self.warm_cache())
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
+
+    async def warm_cache(self) -> None:
+        """Keep the provider's prompt cache warm for the active profile (system prompt only)."""
+        if not self.llm.openai_enabled:
+            return
+        profile = self.storage.get_active_interview_profile()
+        if not profile:
+            return
+        model = settings.openai_text_model
+        system_text = build_system(profile)
+        key = self._warm_key(model, system_text)
+        if time.time() - self._last_warm.get(key, 0) < WARM_INTERVAL_SECONDS:
+            return
+        self._last_warm[key] = time.time()
+        try:
+            await self.llm.warm_openai(
+                [{"role": "system", "content": system_text}, {"role": "user", "content": "Reply with one word: ok"}],
+                model,
+            )
+        except Exception as exc:
+            self._last_warm.pop(key, None)
+            logging.warning("Cache warm-up failed: %s", exc)
 
     async def cancel(self, action_id: str) -> None:
         task = self.running.get(action_id)
@@ -131,6 +169,8 @@ class ActionService:
             finally:
                 notice_task.cancel()
             response = result["text"]
+            if result["provider"] == "openai":
+                self._last_warm[self._warm_key(result["model"], messages[0]["content"])] = time.time()
             self.storage.complete_action(action_id, response)
             await self.emit(
                 {
@@ -380,7 +420,7 @@ class ActionService:
         )
         previous_answers = self._previous_answers(session_id, action_type, quick)
         previous_draft = str(payload.get("previous_response") or "").strip()
-        my_notes = self.storage.recent_hidden_context(session_id)
+        my_notes = self.storage.interview_notes_text(profile["id"]) if profile.get("id") else ""
         style = profile.get("response_style") or "Natural"
 
         system_text = build_system(profile)
@@ -570,50 +610,94 @@ class ActionService:
     def _estimate_tokens(total_chars: int) -> int:
         return max(1, round(total_chars / 4))
 
-    async def generate_internal_profile(self, profile: dict[str, Any]) -> str:
-        profile_context = self._format_profile_context(profile)
+    async def analyze_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
+        """One-time review of resume vs. job. Returns guardrails, gaps and a cleaned job description."""
+        resume = str(profile.get("resume_text") or "").strip()
+        if not resume:
+            raise RuntimeError("Add the resume text first.")
+
+        sections = [
+            ("Resume", "resume_text"),
+            ("Job description", "job_description_text"),
+            ("Cover letter", "cover_letter_text"),
+            ("LinkedIn/profile", "linkedin_text"),
+            ("Personal notes", "personal_notes"),
+            ("Company information", "company_info"),
+        ]
+        data_blocks = []
+        for label, key in sections:
+            value = str(profile.get(key) or "").strip()
+            if value:
+                data_blocks.append(f"<{key}>\n{value}\n</{key}>")
+        has_job = bool(str(profile.get("job_description_text") or "").strip())
+        today = datetime.date.today().isoformat()
+
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "Create an internal candidate profile for a real-time job interview copilot. "
-                    "Do not write a candidate-facing answer. Be factual, conservative, and explicit "
-                    "about what should not be claimed."
+                    "You prepare the guardrails for a live job-interview copilot. The copilot writes answers "
+                    "that the candidate speaks out loud as themselves, so a wrong claim can cost the candidate the job. "
+                    "Be factual and conservative. Use only the text you are given. Never invent facts about the candidate."
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    "Use only the pasted text below. The job description is guidance, not truth.\n\n"
-                    f"{profile_context}\n\n"
-                    "Return a concise internal profile with these headings:\n"
-                    "- Candidate Identity Summary\n"
-                    "- Company Timeline\n"
-                    "  Include every role from the resume with Company, Title, Dates, Core Responsibilities, "
-                    "Safe Claims, Metrics, and Attribution Warnings. Do not omit or merge companies.\n"
-                    "- Communication Style\n"
-                    "  Define a natural interview voice that sounds trustworthy, organized, clear, practical, and human. "
-                    "Avoid TED Talk tone, corporate-speaker tone, motivational pitch, and scripted wording.\n"
-                    "- Strongest Themes\n"
-                    "- Company-Grounded Examples To Reuse\n"
-                    "  For each example, include Company/Project, Topics, Safe Claims, and Attribution Warnings.\n"
-                    "- Broad Introduction Guidance\n"
-                    "  Explain how to answer 'tell me about yourself' in 60-90 seconds using the full resume timeline, "
-                    "without reciting every responsibility, using all metrics at once, or mirroring the job description.\n"
-                    "- Risk Areas\n"
-                    "- Strategic Framing Opportunities\n"
-                    "- Claims To Avoid\n"
-                    "- Attribution Boundaries\n"
-                    "  Explicitly list topics/tools/achievements that must not be moved between companies/projects."
+                    f"Today is {today}.\n\n"
+                    + "\n\n".join(data_blocks)
+                    + "\n\nReturn ONLY a JSON object with exactly these keys:\n"
+                    '"guardrails": a string of 4 to 10 lines, each starting with "- ", written in first person '
+                    "(\"I ...\"), plain English, one or two short sentences each. Cover only what the text supports:\n"
+                    "  1. Concrete tools, technologies, certifications, domains or experience that the job asks for and "
+                    "the resume does not show. Write: \"I have no direct experience with X, Y. Never claim it. If asked, "
+                    "say so plainly in one sentence and connect it to my closest real experience.\" Skip soft skills.\n"
+                    "  2. Scope limits that the resume wording shows (for example supported versus led, coordinated "
+                    "versus built). Only when the verbs in the resume clearly say it.\n"
+                    "  3. Whether the most recent job is current or already ended, using today's date.\n"
+                    "  4. The metrics the resume actually states. Never invent other numbers and never explain how a "
+                    "number was measured.\n"
+                    "  5. One positioning line: how I should come across, based on my real experience.\n"
+                    "  If the text does not clearly support a line, leave that line out.\n"
+                    '"gaps": an array of up to 8 short strings. Each string names one job requirement and says what the '
+                    "resume shows or lacks for it. Empty array if there is no job description.\n"
+                    '"clean_job_description": the job description reduced to the role summary, responsibilities, '
+                    "requirements, nice-to-haves and facts about the team or culture. Keep the original wording. Remove "
+                    "benefits, perks, salary, how to apply, legal text and repeated slogans. Plain text with short "
+                    "headings. If there is no job description, return an empty string."
                 ),
             },
         ]
-        return await self.llm.complete_chat(
+        raw = await self.llm.complete_chat(
             messages,
-            temperature=0.25,
-            max_tokens=1200,
+            model=settings.openai_analysis_model,
+            temperature=0.2,
+            max_tokens=3000,
             prefer_openai=True,
         )
+        result = self._parse_analysis(raw)
+        if not has_job:
+            result["gaps"] = []
+            result["clean_job_description"] = ""
+        return result
+
+    @staticmethod
+    def _parse_analysis(raw: str) -> dict[str, Any]:
+        text = (raw or "").strip()
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end <= start:
+            raise RuntimeError("The analysis did not return JSON. Try again.")
+        try:
+            data = json.loads(text[start : end + 1])
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("The analysis returned invalid JSON. Try again.") from exc
+        guardrails = str(data.get("guardrails") or "").strip()
+        gaps = [str(item).strip() for item in (data.get("gaps") or []) if str(item).strip()]
+        return {
+            "guardrails": guardrails,
+            "gaps": gaps[:8],
+            "clean_job_description": str(data.get("clean_job_description") or "").strip(),
+        }
 
     async def _run_screenshot_action(self, session_id: str, action_id: str) -> None:
         prompt = (

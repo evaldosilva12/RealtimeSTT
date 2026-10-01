@@ -15,6 +15,10 @@ from config import settings
 
 DeltaCallback = Callable[[str], Awaitable[None]]
 
+# Own logger with its own level: RealtimeSTT forces the root logger to WARNING.
+logger = logging.getLogger("interview_copilot.llm")
+logger.setLevel(logging.INFO)
+
 
 class LLMRequestError(RuntimeError):
     def __init__(self, message: str, *, retry_after: str = "", rate_limited: bool = False) -> None:
@@ -196,8 +200,9 @@ class LLMService:
             },
             method="POST",
         )
+        started = time.perf_counter()
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with urllib.request.urlopen(request, timeout=120) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
@@ -205,7 +210,14 @@ class LLMService:
         except urllib.error.URLError as exc:
             raise LLMRequestError(f"OpenAI request failed: {exc.reason}") from exc
 
+        self._log_openai_usage(model, started, None, body.get("usage") or {})
         return str(body["choices"][0]["message"]["content"]).strip()
+
+    async def warm_openai(self, messages: list[dict[str, Any]], model: str) -> None:
+        """Tiny request that makes OpenAI cache the stable prompt prefix."""
+        if not self.openai_enabled:
+            return
+        await asyncio.to_thread(self._complete_openai, messages, model, 0.0, 16)
 
     def _stream_openai(
         self,
@@ -276,7 +288,7 @@ class LLMService:
         prompt_tokens = usage.get("prompt_tokens", 0)
         cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
         reasoning = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
-        logging.info(
+        logger.info(
             "OpenAI %s first_token=%.2fs total=%.2fs prompt=%s cached=%s completion=%s reasoning=%s",
             model,
             first_delta_at if first_delta_at is not None else -1,

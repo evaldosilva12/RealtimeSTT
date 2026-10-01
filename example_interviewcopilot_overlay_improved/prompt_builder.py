@@ -49,7 +49,8 @@ You are a real-time interview copilot. You write exactly what the candidate will
 <transcript_rules>
 - The conversation comes from automatic speech recognition. It can have wrong words, missing punctuation, cut-off sentences and more than one speaker. Infer the real question.
 - If the selected text is cut off or is not a question, use the earlier conversation to find the question that is still waiting for an answer.
-- If nobody has asked anything yet (the other person is still giving context or telling a story), do not invent a question. Reply only with: (No question yet. Keep listening.)
+- If nobody has asked anything yet, do not invent a question or answer one that was not asked. This includes small talk fillers ("great", "interesting", "thanks"), lead-ins ("let's start with the basics", "I have a few questions"), a topic announced without its question ("we care a lot about SOC 2"), and the other person giving context or telling a story. Reply only with: (No question yet. Keep listening.) Exception: a greeting or "how are you" is a real question.
+- <interview_notes> are my private notes about this interview (what I already told them, who is who). Use them for continuity. Never read them out.
 - Do not reuse the opening, example, key phrases or closing found in <already_suggested>. Pick a different real example or angle when one exists.
 </transcript_rules>
 """.strip()
@@ -131,7 +132,7 @@ def build_user(
             lines.append(f"{index}. Question: {item['question']}\n   Answer I was given: {item['answer']}")
         parts.append("<already_suggested>\n" + "\n".join(lines) + "\n</already_suggested>")
     if my_notes.strip():
-        parts.append(_field("my_recent_notes", my_notes))
+        parts.append(_field("interview_notes", my_notes))
     if previous_draft.strip():
         parts.append(_field("previous_draft", previous_draft))
     parts.append(_field("selected_text", selected_text or "(none)"))

@@ -14,6 +14,7 @@
                     <p class="eyebrow">Interview Copilot</p>
                 </div>
                 <div class="status-strip">
+                    <span id="activeProfileStatus" class="status-pill" title="Interview used for answers">Interview: -</span>
                     <span id="socketStatus" class="status-pill status-warn">WS connecting</span>
                     <span id="sttStatus" class="status-pill">STT starting</span>
                     <span id="llmStatus" class="status-pill">LLM unknown</span>
@@ -121,12 +122,22 @@
             </header>
             <div class="profile-toolbar">
                 <select id="profileSelect" title="Saved interview profiles"></select>
-                <button id="selectProfile" type="button">Select</button>
                 <button id="newProfile" type="button">New</button>
                 <button id="duplicateProfile" type="button">Duplicate</button>
                 <button id="archiveProfile" type="button">Archive</button>
             </div>
             <div id="profileStatus" class="profile-status">No interview selected.</div>
+            <section id="readiness" class="readiness" aria-label="Interview readiness">
+                <ul id="readinessChecks" class="readiness-checks"></ul>
+                <div class="readiness-size">
+                    <div class="readiness-size-head">
+                        <span id="readinessTokens">-</span>
+                        <span id="readinessDirty" class="readiness-dirty" hidden>Unsaved changes</span>
+                    </div>
+                    <div class="readiness-bar"><div id="readinessBar"></div></div>
+                    <small id="readinessBreakdown"></small>
+                </div>
+            </section>
             <section class="overlay-setup" aria-label="Overlay setup">
                 <div>
                     <span>Overlay transparency</span>
@@ -175,6 +186,35 @@
                 Job description text
                 <textarea id="jobDescriptionText" rows="6" placeholder="Paste the target job description here."></textarea>
             </label>
+            <section class="analysis-box" aria-label="Resume versus job analysis">
+                <div class="analysis-head">
+                    <div>
+                        <span>Analyze resume vs job</span>
+                        <small>Finds what the job asks for and the resume does not show, and drafts the guardrails below. Takes about 20-30 seconds.</small>
+                    </div>
+                    <button id="analyzeProfile" type="button">Analyze</button>
+                </div>
+                <div id="analysisStatus" class="analysis-status" hidden></div>
+                <div id="analysisResult" hidden>
+                    <div class="analysis-label">Gaps to be careful with</div>
+                    <ul id="analysisGaps" class="analysis-gaps"></ul>
+                    <label>
+                        Suggested clean job description (benefits and "how to apply" removed)
+                        <textarea id="cleanJobDescription" rows="8" readonly></textarea>
+                    </label>
+                    <button id="useCleanJobDescription" type="button">Use this job description</button>
+                </div>
+            </section>
+            <section class="guardrails-box" id="guardrailsBox">
+                <label>
+                    Guardrails: what I must NOT claim
+                    <textarea id="additionalInstructions" rows="8" placeholder="- I have no direct experience with ... Never claim it.&#10;- I supported ... I did not lead it.&#10;- My last job ended in ... Do not say I work there now."></textarea>
+                </label>
+                <div class="guardrails-foot">
+                    <small>Sent with every answer. Short first-person lines work best. Review what the analysis wrote before you save.</small>
+                    <button id="insertGuardrailsTemplate" type="button">Insert template</button>
+                </div>
+            </section>
             <details>
                 <summary>Optional interview context</summary>
                 <div class="settings-stack">
@@ -202,25 +242,17 @@
                         Previous interview context
                         <textarea id="previousInterviewContext" rows="4"></textarea>
                     </label>
-                    <label>
-                        Additional instructions
-                        <textarea id="additionalInstructions" rows="4"></textarea>
-                    </label>
                 </div>
             </details>
-            <label>
-                Internal candidate profile
-                <textarea id="internalCandidateProfile" rows="8" placeholder="Generated internal profile will appear here. You may edit it if needed."></textarea>
-            </label>
             <details>
-                <summary>My hidden context</summary>
+                <summary>Interview notes (private, kept for this interview)</summary>
+                <small class="notes-help">Things the AI should remember during the call: what you already told them, who is who, what to avoid repeating. Saved with this interview and sent with every answer. Never shown in the timeline.</small>
                 <div id="hiddenContextLog" class="hidden-log"></div>
-                <textarea id="manualHiddenContext" rows="3" placeholder="Add private context for the AI. It will not appear in the main timeline."></textarea>
-                <button id="saveManualContext" type="button">Add hidden context</button>
+                <textarea id="manualHiddenContext" rows="3" placeholder="e.g. I already told them I have 10 years in project management. Mark leads engineering."></textarea>
+                <button id="saveManualContext" type="button">Add note</button>
             </details>
             <menu>
                 <button value="cancel">Cancel</button>
-                <button id="generateInternalProfile" type="button">Generate Profile</button>
                 <button id="saveProfile" type="button" class="primary">Save Interview</button>
             </menu>
         </form>

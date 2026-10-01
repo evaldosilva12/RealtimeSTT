@@ -33,6 +33,14 @@ class Storage:
                 created_at REAL NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS interview_notes (
+                id TEXT PRIMARY KEY,
+                profile_id TEXT NOT NULL,
+                text TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'manual',
+                created_at REAL NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS hidden_context (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -195,6 +203,47 @@ class Storage:
             (session_id, limit),
         ).fetchall()
         return "\n".join(row["text"] for row in reversed(rows))
+
+    def add_interview_note(self, profile_id: str, text: str, source: str = "manual") -> dict[str, Any]:
+        import uuid
+
+        note = {
+            "id": str(uuid.uuid4()),
+            "profile_id": profile_id,
+            "text": text.strip(),
+            "source": source,
+            "created_at": time.time(),
+        }
+        self.connection.execute(
+            "INSERT INTO interview_notes (id, profile_id, text, source, created_at) VALUES (?, ?, ?, ?, ?)",
+            (note["id"], profile_id, note["text"], source, note["created_at"]),
+        )
+        self.connection.commit()
+        return note
+
+    def list_interview_notes(self, profile_id: str, limit: int = 200) -> list[dict[str, Any]]:
+        rows = self.connection.execute(
+            """
+            SELECT * FROM interview_notes
+            WHERE profile_id = ?
+            ORDER BY created_at DESC, rowid DESC
+            LIMIT ?
+            """,
+            (profile_id, limit),
+        ).fetchall()
+        return [dict(row) for row in reversed(rows)]
+
+    def delete_interview_note(self, note_id: str, profile_id: str) -> bool:
+        cursor = self.connection.execute(
+            "DELETE FROM interview_notes WHERE id = ? AND profile_id = ?",
+            (note_id, profile_id),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
+    def interview_notes_text(self, profile_id: str, limit: int = 20) -> str:
+        notes = self.list_interview_notes(profile_id, limit=limit)
+        return "\n".join(f"- {note['text']}" for note in notes)
 
     def create_action(
         self,
@@ -389,6 +438,8 @@ class Storage:
         existing = self.get_interview_profile(profile_id)
         cleaned = self._clean_profile(data)
         created_at = existing["created_at"] if existing else now
+        if existing and "internal_candidate_profile" not in data:
+            cleaned["internal_candidate_profile"] = existing["internal_candidate_profile"]
         self.connection.execute(
             """
             INSERT INTO interview_profiles (

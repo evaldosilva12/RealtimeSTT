@@ -121,7 +121,7 @@ export function startMyHiddenContext(onStatus) {
             }
             const text = event.results[i][0].transcript.trim();
             if (text) {
-                sendJson({ type: "context.my_note", text });
+                sendJson({ type: "context.my_note", text, source: "speech" });
             }
         }
     };
